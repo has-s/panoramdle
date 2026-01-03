@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>News Quiz</title>
+    <style>
+        #quiz-container {
+            max-width: 600px;
+            margin: auto;
+            text-align: center;
+            font-family: sans-serif;
+        }
+        #media {
+            max-width: 100%;
+            margin: 20px 0;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        #answer-result {
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div id="quiz-container">
+    <h2 id="question">Загрузка...</h2>
+    <img id="media" src="" alt="News media">
+    <p id="text"></p>
+    <button id="true-btn">Правда</button>
+    <button id="false-btn">Фейк</button>
+    <p id="answer-result"></p>
+</div>
+
+<script>
+let quizData = [];
+let currentIndex = 0;
+let results = [];
+
+const containerEl = document.getElementById("quiz-container");
+
+function setupButtons() {
+    const trueBtn = document.getElementById("true-btn");
+    const falseBtn = document.getElementById("false-btn");
+
+    trueBtn.addEventListener("click", () => answer(true));
+    falseBtn.addEventListener("click", () => answer(false));
+}
+
+async function startQuiz() {
+    const response = await fetch("/api/quiz");
+    quizData = await response.json();
+    currentIndex = 0;
+    results = [];
+
+    // Если кнопки были удалены после окончания викторины, нужно заново их привязать
+    containerEl.innerHTML = `
+        <h2 id="question"></h2>
+        <img id="media" src="" alt="News media">
+        <p id="text"></p>
+        <button id="true-btn">Правда</button>
+        <button id="false-btn">Фейк</button>
+        <p id="answer-result"></p>
+    `;
+    setupButtons();
+    showQuestion();
+}
+
+function showQuestion() {
+    const news = quizData[currentIndex];
+    document.getElementById("question").innerText = news.headline;
+    document.getElementById("text").innerText = news.text || "";
+    document.getElementById("media").src = news.media_url || "";
+    document.getElementById("answer-result").innerText = "";
+    document.getElementById("true-btn").disabled = false;
+    document.getElementById("false-btn").disabled = false;
+}
+
+function answer(isReal) {
+    const news = quizData[currentIndex];
+    const correct = isReal === news.is_real;
+    results.push(correct);
+
+    document.getElementById("answer-result").innerText = correct ? "Верно!" : "Неверно!";
+    document.getElementById("true-btn").disabled = true;
+    document.getElementById("false-btn").disabled = true;
+
+    currentIndex++;
+    if (currentIndex < quizData.length) {
+        setTimeout(showQuestion, 1000);
+    } else {
+        setTimeout(showResults, 800);
+    }
+}
+
+function showResults() {
+    const score = results.filter(Boolean).length;
+
+    containerEl.innerHTML = `
+        <h2>Викторина завершена!</h2>
+        <p>Вы угадали ${score} из ${results.length}</p>
+        <button id="restart-btn">Сыграть ещё раз</button>
+    `;
+
+    // кнопка заново
+    document.getElementById("restart-btn").addEventListener("click", startQuiz);
+}
+
+window.onload = startQuiz;
+</script>
+</body>
+</html>

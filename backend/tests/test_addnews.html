@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Добавить новость</title>
+  <style>
+    :root {
+  --color-bg: #fffcf2;
+  --color-bg-sub: #ccc5b9;
+  --color-text: #252422;
+  --color-text-sub: #403d39;
+  --color-contrast: #c1292e;
+}
+
+[data-theme="dark"] {
+  --color-bg: #252422;
+  --color-bg-sub: #403d39;
+  --color-text: #fffcf2;
+  --color-text-sub: #ccc5b9;
+  --color-contrast: #c1292e;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: sans-serif;
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+}
+
+.column {
+  flex: 1;
+  max-width: 800px;
+}
+
+input, textarea, select {
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--color-bg-sub);
+  color: var(--color-text);
+  border: 1px solid var(--color-text-sub);
+  padding: 6px;
+  margin-bottom: 10px;
+}
+
+button {
+  background-color: var(--color-contrast);
+  color: var(--color-bg);
+  border: none;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+#news-form, #after-submit, #preview {
+  display: none;
+}
+
+/* карточка предпросмотра */
+.preview-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;        /* теперь занимает всю ширину колонки */
+  min-height: 400px;  /* увеличена минимальная высота */
+  border: 2px solid var(--color-text-sub);
+  box-shadow: 2px 2px 0 var(--color-text-sub), 4px 4px 0 var(--color-bg-sub);
+  padding: 16px;
+  background-color: var(--color-bg-sub);
+  box-sizing: border-box;
+  border-radius: 6px; /* слегка закругляем */
+}
+
+.preview-media-wrapper img {
+  width: 100%;
+  display: block;
+  object-fit: cover;   /* фото по ширине, высота пропорциональна */
+  max-height: 300px;   /* ограничиваем по высоте */
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+
+.preview-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.2em;
+}
+
+.preview-media-wrapper {
+  width: 100%;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.preview-card p {
+  margin: 0 0 8px 0;
+}
+
+.preview-footer {
+  margin-top: auto; /* всегда внизу */
+  display: flex;
+  justify-content: space-between;
+}
+
+.real-fake {
+  font-weight: bold;
+  color: var(--color-contrast);
+}
+  </style>
+<link rel="stylesheet" href="/static/css/test_addnews.css">
+</head>
+<body>
+
+<div class="column">
+  <h2>Войти</h2>
+  <form id="auth-form">
+    <input type="password" name="password" placeholder="Пароль">
+    <button type="submit">Войти</button>
+  </form>
+  <p id="auth-result"></p>
+
+  <form id="news-form">
+    <h3>Новая новость</h3>
+    <input type="text" name="headline" placeholder="Заголовок (обязательное)"><br><br>
+    <textarea name="text" placeholder="Текст новости"></textarea><br><br>
+    <input type="text" name="media_url" placeholder="Ссылка на изображение"><br><br>
+    <input type="text" name="source_name" placeholder="Источник новости (обязательное)"><br><br>
+    <select name="format">
+      <option value="txt">Текст</option>
+      <option value="img">Изображение</option>
+      <option value="img_txt">Текст + изображение</option>
+    </select><br><br>
+    <label>
+      <input type="checkbox" name="is_real"> Это реальная новость?
+    </label><br><br>
+    <button type="submit">Добавить</button>
+  </form>
+
+  <div id="after-submit">
+    <p>Новость добавлена!</p>
+    <button id="add-another">Отправить ещё</button>
+    <button id="go-quiz">Перейти к квизу</button>
+  </div>
+</div>
+
+<div class="column" id="preview">
+  <div class="preview-card">
+    <h3 id="preview-headline"></h3>
+    <div class="preview-media-wrapper">
+      <img id="preview-media" src="" alt="">
+    </div>
+    <p id="preview-text"></p>
+    <div class="preview-footer">
+      <p class="real-fake" id="preview-is-real"></p>
+      <p id="preview-source"></p>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/test_addnews.js"></script>
+</body>
+</html>
