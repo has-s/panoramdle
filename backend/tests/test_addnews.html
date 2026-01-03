@@ -3,20 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <title>Добавить новость</title>
-  <style>
-    :root {
+<style>
+:root {
   --color-bg: #fffcf2;
   --color-bg-sub: #ccc5b9;
   --color-text: #252422;
   --color-text-sub: #403d39;
-  --color-contrast: #c1292e;
-}
-
-[data-theme="dark"] {
-  --color-bg: #252422;
-  --color-bg-sub: #403d39;
-  --color-text: #fffcf2;
-  --color-text-sub: #ccc5b9;
   --color-contrast: #c1292e;
 }
 
@@ -31,7 +23,7 @@ body {
 
 .column {
   flex: 1;
-  max-width: 800px;
+  max-width: 600px;
 }
 
 input, textarea, select {
@@ -56,46 +48,32 @@ button {
   display: none;
 }
 
-/* карточка предпросмотра */
 .preview-card {
   display: flex;
   flex-direction: column;
-  width: 100%;        /* теперь занимает всю ширину колонки */
-  min-height: 400px;  /* увеличена минимальная высота */
+  width: 100%;
+  min-height: 200px;
   border: 2px solid var(--color-text-sub);
   box-shadow: 2px 2px 0 var(--color-text-sub), 4px 4px 0 var(--color-bg-sub);
   padding: 16px;
   background-color: var(--color-bg-sub);
-  box-sizing: border-box;
-  border-radius: 6px; /* слегка закругляем */
+  border-radius: 6px;
 }
 
 .preview-media-wrapper img {
   width: 100%;
-  display: block;
-  object-fit: cover;   /* фото по ширине, высота пропорциональна */
-  max-height: 300px;   /* ограничиваем по высоте */
+  max-height: 200px;
+  object-fit: cover;
   margin-bottom: 8px;
   border-radius: 4px;
 }
 
 .preview-card h3 {
   margin: 0 0 8px 0;
-  font-size: 1.2em;
-}
-
-.preview-media-wrapper {
-  width: 100%;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.preview-card p {
-  margin: 0 0 8px 0;
 }
 
 .preview-footer {
-  margin-top: auto; /* всегда внизу */
+  margin-top: auto;
   display: flex;
   justify-content: space-between;
 }
@@ -104,13 +82,13 @@ button {
   font-weight: bold;
   color: var(--color-contrast);
 }
-  </style>
-<link rel="stylesheet" href="/static/css/test_addnews.css">
+</style>
 </head>
 <body>
 
 <div class="column">
-  <h2>Войти</h2>
+  <h2 id="title">Войти</h2>
+
   <form id="auth-form">
     <input type="password" name="password" placeholder="Пароль">
     <button type="submit">Войти</button>
@@ -118,26 +96,27 @@ button {
   <p id="auth-result"></p>
 
   <form id="news-form">
-    <h3>Новая новость</h3>
-    <input type="text" name="headline" placeholder="Заголовок (обязательное)"><br><br>
-    <textarea name="text" placeholder="Текст новости"></textarea><br><br>
-    <input type="text" name="media_url" placeholder="Ссылка на изображение"><br><br>
-    <input type="text" name="source_name" placeholder="Источник новости (обязательное)"><br><br>
+    <input type="hidden" name="password" id="saved-password">
+    <input type="text" name="headline" placeholder="Заголовок" required>
+    <textarea name="text" placeholder="Текст"></textarea>
+    <input type="text" name="media_url" placeholder="Ссылка на изображение">
+    <input type="text" name="source_name" placeholder="Источник" required>
     <select name="format">
-      <option value="txt">Текст</option>
-      <option value="img">Изображение</option>
-      <option value="img_txt">Текст + изображение</option>
-    </select><br><br>
+      <option value="txt">txt</option>
+      <option value="img">img</option>
+      <option value="img_txt">img_txt</option>
+    </select>
     <label>
-      <input type="checkbox" name="is_real"> Это реальная новость?
-    </label><br><br>
+      <input type="checkbox" id="is_real_checkbox">
+      Реальная новость
+    </label>
+    <input type="hidden" name="is_real" id="is_real_hidden" value="false"><br>
     <button type="submit">Добавить</button>
   </form>
 
   <div id="after-submit">
     <p>Новость добавлена!</p>
     <button id="add-another">Отправить ещё</button>
-    <button id="go-quiz">Перейти к квизу</button>
   </div>
 </div>
 
