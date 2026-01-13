@@ -5,8 +5,14 @@ from fastapi.templating import Jinja2Templates
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 import uuid
+import logging
+
+# Настройка логирования для отладки
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 from backend.db import database, news
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -14,20 +20,21 @@ async def lifespan(app: FastAPI):
     yield
     await database.disconnect()
 
+
 backend = FastAPI(lifespan=lifespan)
 tests = Jinja2Templates(directory="backend/tests")
 templates = Jinja2Templates(directory="backend/templates")
 
 backend.mount("/static", StaticFiles(directory="backend/static"), name="static")
 
+
 @backend.get("/api/quiz")
 async def quiz():
     query = """
-    SELECT id, headline, text, format, is_real, media_url, source_name
-    FROM news
-    ORDER BY RANDOM()
-    LIMIT 3
-    """
+            SELECT id, headline, text, format, is_real, media_url, source_name
+            FROM news
+            ORDER BY RANDOM() LIMIT 3 \
+            """
     rows = await database.fetch_all(query)
     return [dict(row) for row in rows]
 
@@ -45,7 +52,9 @@ async def addnews_page(request: Request):
 # === проверка пароля ===
 def check_password(password: str) -> bool:
     tomorrow = datetime.now().date() + timedelta(days=1)
-    return password == tomorrow.strftime("%d.%m.%Y")
+    expected = tomorrow.strftime("%d.%m.%Y")
+    logger.info(f"Expected password: {expected}, received: {password}")
+    return password == expected
 
 
 @backend.post("/api/auth")
@@ -57,26 +66,39 @@ async def auth(password: str = Form(...)):
 
 @backend.post("/api/addnews")
 async def add_news(
-    headline: str = Form(...),
-    text: str | None = Form(None),
-    format: str = Form(...),
-    is_real: str = Form(...),
-    media_url: str | None = Form(None),
-    source_name: str | None = Form(None),
-    password: str = Form(...),
+        password: str = Form(...),
+        headline: str = Form(...),
+        text: str = Form(""),
+        format: str = Form(...),
+        is_real: str = Form(...),
+        media_url: str = Form(""),
+        source_name: str = Form(""),
 ):
+    logger.info(f"Received request: password={password}, headline={headline}, format={format}, is_real={is_real}")
+
     if not check_password(password):
-        return JSONResponse({"error": "Invalid password"}, status_code=403)
+        logger.warning("Invalid password attempt")
+        return JSONResponse({"error": "Invalid password", "ok": False}, status_code=403)
+
     is_real_bool = is_real.lower() == "true"
 
-    query = news.insert().values(
-        id=str(uuid.uuid4()),
-        headline=headline,
-        text=text,
-        format=format,
-        is_real=is_real_bool,
-        media_url=media_url,
-        source_name=source_name,
-    )
-    await database.execute(query)
-    return {"ok": True}
+    text_value = text if text.strip() else None
+    media_url_value = media_url if media_url.strip() else None
+    source_name_value = source_name if source_name.strip() else None
+
+    try:
+        query = news.insert().values(
+            id=str(uuid.uuid4()),
+            headline=headline,
+            text=text_value,
+            format=format,
+            is_real=is_real_bool,
+            media_url=media_url_value,
+            source_name=source_name_value,
+        )
+        await database.execute(query)
+        logger.info("News added successfully")
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Database error: {str(e)}")
+        return JSONResponse({"error": str(e), "ok": False}, status_code=500)
