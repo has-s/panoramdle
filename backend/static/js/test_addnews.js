@@ -44,7 +44,7 @@ newsForm.addEventListener("input", () => {
     const f = newsForm;
     previewHeadline.textContent = f.headline.value;
     previewText.textContent = f.text.value;
-    previewIsReal.textContent = f.is_real.value === "true" ? "(REAL)" : "(FAKE)";
+    previewIsReal.textContent = f.is_real.value === "true" ? "(FAKE)" : "(REAL)";
     previewSource.textContent = f.source_name.value;
 
     if ((f.format.value === "img" || f.format.value === "img_txt") && f.media_url.value) {
