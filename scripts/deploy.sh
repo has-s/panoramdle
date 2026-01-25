@@ -82,11 +82,11 @@ docker-compose up -d backend
 
 # Ждем запуска
 echo "Waiting for backend to start..."
-sleep 10
+sleep 5
 
-# 8. Health check
+# 8. Health check с увеличенным таймаутом
 echo -e "${YELLOW}[8/9] Running health check...${NC}"
-MAX_RETRIES=10
+MAX_RETRIES=20  # Увеличено с 10 до 20
 RETRY_COUNT=0
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
@@ -97,11 +97,17 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 
     RETRY_COUNT=$((RETRY_COUNT + 1))
     echo "Health check attempt $RETRY_COUNT/$MAX_RETRIES..."
-    sleep 3
+    sleep 5  # Увеличено с 3 до 5 секунд
 done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     echo -e "${RED}✗ Health check failed! Rolling back...${NC}"
+
+    # Показать логи для отладки
+    echo ""
+    echo "=== Backend logs (last 30 lines) ==="
+    docker-compose logs --tail=30 backend
+    echo ""
 
     # Откат
     if [ -f .deploy_previous_version ]; then
