@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # scripts/nginx_reload.sh
+# Управление Nginx на хосте для panoramdle
 
 set -e
 
@@ -15,6 +16,7 @@ case "${1:-reload}" in
     install)
         echo -e "${YELLOW}Installing Nginx configuration...${NC}"
 
+        # Загружаем переменные из .env.docker
         if [ -f ".env.docker" ]; then
             set -a
             source .env.docker
@@ -24,10 +26,12 @@ case "${1:-reload}" in
             exit 1
         fi
 
+        # Устанавливаем значения по умолчанию если не заданы
         DOMAIN=${DOMAIN:-_}
         BACKEND_PORT=${BACKEND_PORT:-8000}
-        PROJECT_PATH=${PROJECT_PATH:-/var/www/panoramdle}
+        PROJECT_PATH=${PROJECT_PATH:-$(pwd)}  # Текущая директория по умолчанию
 
+        # Генерируем конфиг из template
         if [ -f "nginx/panoramdle.conf.template" ]; then
             echo "Generating config from template..."
             sed -e "s|DOMAIN_NAME|$DOMAIN|g" \
@@ -40,6 +44,7 @@ case "${1:-reload}" in
             exit 1
         fi
 
+        # Копируем конфиг
         if [ -f "nginx/panoramdle.conf" ]; then
             sudo cp nginx/panoramdle.conf $NGINX_CONFIG
             echo -e "${GREEN}✓ Configuration copied${NC}"
@@ -48,11 +53,13 @@ case "${1:-reload}" in
             exit 1
         fi
 
+        # Создаем symlink
         if [ ! -L "$NGINX_ENABLED" ]; then
             sudo ln -s $NGINX_CONFIG $NGINX_ENABLED
             echo -e "${GREEN}✓ Configuration enabled${NC}"
         fi
 
+        # Тестируем
         if sudo nginx -t; then
             echo -e "${GREEN}✓ Configuration is valid${NC}"
             sudo systemctl reload nginx

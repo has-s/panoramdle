@@ -4,7 +4,7 @@ name: Deploy to Server
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch:  # Ручной запуск
 
 jobs:
   deploy:
@@ -22,12 +22,12 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.SSH_PORT || 22 }}
         script: |
-          cd ${{ secrets.PROJECT_PATH || '/var/www/panoramdle' }}
+          cd ${{ secrets.PROJECT_PATH }}
           
           # Pull latest changes
           git pull origin main
           
-          # Run deployment script (with auto backup)
+          # Run deployment script (с автоматическим бэкапом)
           chmod +x scripts/*.sh
           ./scripts/deploy.sh
           
@@ -59,7 +59,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.SSH_PORT || 22 }}
         script: |
-          cd ${{ secrets.PROJECT_PATH || '/var/www/newsapp' }}
+          cd ${{ secrets.PROJECT_PATH }}
           
           echo "Deployment failed! Attempting rollback..."
           ./scripts/rollback.sh || true
