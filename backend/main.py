@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import uuid
 import logging
 
-# Настройка логирования для отладки
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -28,28 +28,32 @@ templates = Jinja2Templates(directory="backend/templates")
 backend.mount("/static", StaticFiles(directory="backend/static"), name="static")
 
 
-@backend.get("/api/quiz")
-async def quiz():
-    query = """
-            SELECT id, headline, text, format, is_real, media_url, source_name
-            FROM news
-            ORDER BY RANDOM() LIMIT 3 \
-            """
-    rows = await database.fetch_all(query)
-    return [dict(row) for row in rows]
-
-
 @backend.get("/", response_class=HTMLResponse)
 async def quiz_page(request: Request):
     return tests.TemplateResponse("test_quiz.html", {"request": request})
 
+@backend.get("/health")
+async def health_check():
+    """Health check endpoint для мониторинга"""
+    try:
+        await database.execute("SELECT 1")
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "database": "connected"
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return JSONResponse(
+            {"status": "unhealthy", "error": str(e)},
+            status_code=503
+        )
 
 @backend.get("/addnews", response_class=HTMLResponse)
 async def addnews_page(request: Request):
     return tests.TemplateResponse("test_addnews.html", {"request": request})
 
 
-# === проверка пароля ===
 def check_password(password: str) -> bool:
     tomorrow = datetime.now().date() + timedelta(days=1)
     expected = tomorrow.strftime("%d.%m.%Y")
@@ -62,6 +66,17 @@ async def auth(password: str = Form(...)):
     if check_password(password):
         return {"ok": True}
     return {"ok": False}
+
+
+@backend.get("/api/quiz")
+async def quiz():
+    query = """
+            SELECT id, headline, text, format, is_real, media_url, source_name
+            FROM news
+            ORDER BY RANDOM() LIMIT 3 \
+            """
+    rows = await database.fetch_all(query)
+    return [dict(row) for row in rows]
 
 
 @backend.post("/api/addnews")
