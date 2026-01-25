@@ -1,4 +1,4 @@
-# Makefile
+# Makefile для panoramdle
 .PHONY: help build up down restart logs status clean backup restore deploy nginx-reload nginx-test db-init db-seed db-status health
 
 GREEN  := \033[0;32m
@@ -130,7 +130,13 @@ rollback: ## Откатить последний деплой
 
 health: ## Проверить здоровье сервисов
 	@echo "$(GREEN)=== Backend Health ===$(NC)"
-	@curl -f http://localhost:8000/health 2>/dev/null && echo "$(GREEN)✓ Backend OK$(NC)" || echo "$(RED)✗ Backend DOWN$(NC)"
+	@if [ -f .env.docker ]; then \
+		source .env.docker && \
+		BACKEND_PORT=${BACKEND_PORT:-8000} && \
+		curl -f http://localhost:$BACKEND_PORT/health 2>/dev/null && echo "$(GREEN)✓ Backend OK$(NC)" || echo "$(RED)✗ Backend DOWN$(NC)"; \
+	else \
+		curl -f http://localhost:8000/health 2>/dev/null && echo "$(GREEN)✓ Backend OK$(NC)" || echo "$(RED)✗ Backend DOWN$(NC)"; \
+	fi
 	@echo ""
 	@echo "$(GREEN)=== Database Health ===$(NC)"
 	@docker-compose exec panoramdle_db pg_isready -U postgres 2>/dev/null && echo "$(GREEN)✓ Database OK$(NC)" || echo "$(RED)✗ Database DOWN$(NC)"

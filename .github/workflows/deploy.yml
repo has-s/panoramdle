@@ -42,13 +42,31 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.SSH_PORT || 22 }}
         script: |
-          # Wait for services to be ready
-          sleep 10
+          cd ${{ secrets.PROJECT_PATH }}
           
-          # Test health endpoint
-          curl -f http://localhost/health || exit 1
+          # Загрузить порт из .env.docker
+          source .env.docker
+          BACKEND_PORT=${BACKEND_PORT:-8000}
           
-          echo "Deployment successful!"
+          # Ждем готовности backend (до 60 секунд)
+          echo "Waiting for backend to be ready on port $BACKEND_PORT..."
+          for i in {1..12}; do
+            if curl -f http://localhost:$BACKEND_PORT/health > /dev/null 2>&1; then
+              echo "✓ Backend is healthy!"
+              break
+            fi
+            echo "Attempt $i/12..."
+            sleep 5
+          done
+          
+          # Финальная проверка
+          if ! curl -f http://localhost:$BACKEND_PORT/health; then
+            echo "✗ Health check failed!"
+            docker-compose logs --tail=50 backend
+            exit 1
+          fi
+          
+          echo "✓ Deployment successful!"
 
     - name: Notify on failure
       if: failure()

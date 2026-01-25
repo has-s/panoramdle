@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
 # scripts/deploy.sh
-# Скрипт для безопасного деплоя приложения
 
 set -e
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 PROJECT_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+
+# Загрузка переменных из .env.docker
+if [ -f "$PROJECT_ROOT/.env.docker" ]; then
+    set -a
+    source "$PROJECT_ROOT/.env.docker"
+    set +a
+fi
+
+# Порт по умолчанию
+BACKEND_PORT=${BACKEND_PORT:-8000}
 
 # Цвета
 GREEN='\033[0;32m'
@@ -25,7 +34,7 @@ if ! docker-compose ps | grep -q "Up"; then
     echo -e "${GREEN}✓ Services started${NC}"
 fi
 
-# 2. ОБЯЗАТЕЛЬНЫЙ бэкап БД перед каждым деплоем
+# 2. Обязательный бэкап БД перед каждым деплоем
 echo -e "${YELLOW}[2/9] Creating database backup (CRITICAL)...${NC}"
 if [ -f "./scripts/db_backup.sh" ]; then
     ./scripts/db_backup.sh
@@ -85,12 +94,12 @@ echo "Waiting for backend to start..."
 sleep 5
 
 # 8. Health check с увеличенным таймаутом
-echo -e "${YELLOW}[8/9] Running health check...${NC}"
+echo -e "${YELLOW}[8/9] Running health check on port $BACKEND_PORT...${NC}"
 MAX_RETRIES=20  # Увеличено с 10 до 20
 RETRY_COUNT=0
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if curl -f http://localhost:8000/health > /dev/null 2>&1; then
+    if curl -f http://localhost:$BACKEND_PORT/health > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Health check passed!${NC}"
         break
     fi
