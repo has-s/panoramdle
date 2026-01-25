@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # scripts/deploy.sh
+# Скрипт для безопасного деплоя приложения
 
 set -e
 
@@ -15,11 +16,13 @@ NC='\033[0m'
 echo -e "${GREEN}=== Starting Deployment ===${NC}"
 echo ""
 
-# 1. Проверка текущего состояния
+# 1. Проверка текущего состояния (с автозапуском)
 echo -e "${YELLOW}[1/9] Checking current state...${NC}"
 if ! docker-compose ps | grep -q "Up"; then
-    echo -e "${RED}Error: Services are not running. Start them first with 'make up'${NC}"
-    exit 1
+    echo -e "${YELLOW}Services are not running. Starting them...${NC}"
+    docker-compose up -d
+    sleep 10
+    echo -e "${GREEN}✓ Services started${NC}"
 fi
 
 # 2. ОБЯЗАТЕЛЬНЫЙ бэкап БД перед каждым деплоем
@@ -67,7 +70,15 @@ fi
 
 # 7. Деплой с минимальным downtime
 echo -e "${YELLOW}[7/9] Deploying new version...${NC}"
-docker-compose up -d --no-deps --build backend
+
+# Останавливаем backend
+docker-compose stop backend
+
+# Удаляем старый контейнер
+docker-compose rm -f backend
+
+# Запускаем новый
+docker-compose up -d backend
 
 # Ждем запуска
 echo "Waiting for backend to start..."
