@@ -34,7 +34,7 @@ if ! docker-compose ps | grep -q "Up"; then
     echo -e "${GREEN}✓ Services started${NC}"
 fi
 
-# 2. Обязательный бэкап БД перед каждым деплоем
+# 2. ОБЯЗАТЕЛЬНЫЙ бэкап БД перед каждым деплоем
 echo -e "${YELLOW}[2/9] Creating database backup (CRITICAL)...${NC}"
 if [ -f "./scripts/db_backup.sh" ]; then
     ./scripts/db_backup.sh
@@ -57,7 +57,12 @@ echo "Previous version saved: $CURRENT_VERSION"
 # 4. Pull последних изменений из Git (если используется)
 if [ -d .git ]; then
     echo -e "${YELLOW}[4/9] Pulling latest changes from Git...${NC}"
-    git pull origin main
+
+    # Сбросить локальные изменения и взять версию с GitHub
+    git fetch origin main
+    git reset --hard origin/main
+
+    echo -e "${GREEN}✓ Updated to latest version from GitHub${NC}"
 else
     echo -e "${YELLOW}[4/9] Skipping Git pull (not a git repository)${NC}"
 fi
