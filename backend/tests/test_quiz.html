@@ -1,38 +1,166 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>News Quiz</title>
     <style>
-        #quiz-container {
-            max-width: 600px;
-            margin: auto;
-            text-align: center;
-            font-family: sans-serif;
+        :root {
+            --color-bg: #fffcf2;
+            --color-bg-sub: #ccc5b9;
+            --color-text: #252422;
+            --color-text-sub: #403d39;
+            --color-contrast: #c1292e;
+            --color-success: #2d6a4f;
         }
+
+        body {
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            font-family: sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        #quiz-container {
+            max-width: 700px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .progress {
+            margin-bottom: 20px;
+            font-size: 18px;
+            color: var(--color-text-sub);
+        }
+
+        .news-card {
+            background-color: var(--color-bg-sub);
+            border: 2px solid var(--color-text-sub);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 3px 3px 0 var(--color-text-sub);
+        }
+
+        .news-card h2 {
+            margin: 0 0 15px 0;
+            font-size: 24px;
+        }
+
         #media {
             max-width: 100%;
-            margin: 20px 0;
+            max-height: 400px;
+            border-radius: 6px;
+            margin: 15px 0;
+            display: none;
         }
-        button {
-            margin: 5px;
-            padding: 10px 20px;
+
+        #media.visible {
+            display: block;
+        }
+
+        #text {
             font-size: 16px;
+            line-height: 1.6;
+            margin: 15px 0;
+            text-align: left;
         }
+
+        .news-meta {
+            display: flex;
+            justify-content: space-between;
+            margin: 15px 0;
+            font-size: 14px;
+            color: var(--color-text-sub);
+        }
+
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 18px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        #true-btn {
+            background-color: var(--color-success);
+            color: white;
+        }
+
+        #false-btn {
+            background-color: var(--color-contrast);
+            color: white;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         #answer-result {
             font-weight: bold;
-            margin-top: 10px;
+            font-size: 20px;
+            margin-top: 15px;
+            min-height: 30px;
+        }
+
+        #answer-result.correct {
+            color: var(--color-success);
+        }
+
+        #answer-result.incorrect {
+            color: var(--color-contrast);
+        }
+
+        .results {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .results h2 {
+            font-size: 32px;
+            margin-bottom: 20px;
+        }
+
+        .score {
+            font-size: 48px;
+            font-weight: bold;
+            color: var(--color-contrast);
+            margin: 20px 0;
+        }
+
+        #restart-btn {
+            background-color: var(--color-contrast);
+            color: white;
+            margin-top: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 20px;
         }
     </style>
 </head>
 <body>
 <div id="quiz-container">
-    <h2 id="question">Загрузка...</h2>
-    <img id="media" src="" alt="News media">
-    <p id="text"></p>
-    <button id="true-btn">Правда</button>
-    <button id="false-btn">Фейк</button>
-    <p id="answer-result"></p>
+    <div class="loading">
+        <p>Загрузка квиза...</p>
+    </div>
 </div>
 
 <script>
@@ -46,37 +174,75 @@ function setupButtons() {
     const trueBtn = document.getElementById("true-btn");
     const falseBtn = document.getElementById("false-btn");
 
-    trueBtn.addEventListener("click", () => answer(true));
-    falseBtn.addEventListener("click", () => answer(false));
+    if (trueBtn && falseBtn) {
+        trueBtn.addEventListener("click", () => answer(true));
+        falseBtn.addEventListener("click", () => answer(false));
+    }
 }
 
 async function startQuiz() {
-    const response = await fetch("/api/quiz");
-    quizData = await response.json();
-    currentIndex = 0;
-    results = [];
+    try {
+        const response = await fetch("/api/quiz");
+        if (!response.ok) {
+            throw new Error("Ошибка загрузки квиза");
+        }
+        quizData = await response.json();
 
-    // Если кнопки были удалены после окончания викторины, нужно заново их привязать
-    containerEl.innerHTML = `
-        <h2 id="question"></h2>
-        <img id="media" src="" alt="News media">
-        <p id="text"></p>
-        <button id="true-btn">Правда</button>
-        <button id="false-btn">Фейк</button>
-        <p id="answer-result"></p>
-    `;
-    setupButtons();
-    showQuestion();
+        if (quizData.length === 0) {
+            containerEl.innerHTML = `
+                <div class="results">
+                    <h2>Нет доступных новостей</h2>
+                    <p>Добавьте новости для начала квиза</p>
+                </div>
+            `;
+            return;
+        }
+
+        currentIndex = 0;
+        results = [];
+        showQuestion();
+    } catch (error) {
+        containerEl.innerHTML = `
+            <div class="results">
+                <h2>Ошибка загрузки</h2>
+                <p>${error.message}</p>
+                <button id="restart-btn">Попробовать снова</button>
+            </div>
+        `;
+        document.getElementById("restart-btn").addEventListener("click", startQuiz);
+    }
 }
 
 function showQuestion() {
     const news = quizData[currentIndex];
-    document.getElementById("question").innerText = news.headline;
-    document.getElementById("text").innerText = news.text || "";
-    document.getElementById("media").src = news.media_url || "";
-    document.getElementById("answer-result").innerText = "";
-    document.getElementById("true-btn").disabled = false;
-    document.getElementById("false-btn").disabled = false;
+    const progress = `Вопрос ${currentIndex + 1} из ${quizData.length}`;
+
+    // Форматирование даты
+    let dateStr = "";
+    if (news.published_date) {
+        const date = new Date(news.published_date);
+        dateStr = date.toLocaleDateString('ru-RU');
+    }
+
+    containerEl.innerHTML = `
+        <div class="progress">${progress}</div>
+        <div class="news-card">
+            <h2>${news.headline}</h2>
+            ${news.media_url ? `<img id="media" class="visible" src="${news.media_url}" alt="Изображение новости">` : '<img id="media" src="" alt="">'}
+            ${news.text ? `<p id="text">${news.text}</p>` : ''}
+            <div class="news-meta">
+                <span>Источник: ${news.source_name || 'Неизвестно'}</span>
+                ${dateStr ? `<span>Дата: ${dateStr}</span>` : ''}
+            </div>
+        </div>
+        <div class="buttons">
+            <button id="true-btn">✓ Правда</button>
+            <button id="false-btn">✗ Фейк</button>
+        </div>
+        <p id="answer-result"></p>
+    `;
+
+    setupButtons();
 }
 
 function answer(isReal) {
@@ -84,28 +250,51 @@ function answer(isReal) {
     const correct = isReal === news.is_real;
     results.push(correct);
 
-    document.getElementById("answer-result").innerText = correct ? "Верно!" : "Неверно!";
+    const resultEl = document.getElementById("answer-result");
+    resultEl.innerText = correct ? "✓ Верно!" : "✗ Неверно!";
+    resultEl.className = correct ? "correct" : "incorrect";
+
     document.getElementById("true-btn").disabled = true;
     document.getElementById("false-btn").disabled = true;
 
     currentIndex++;
     if (currentIndex < quizData.length) {
-        setTimeout(showQuestion, 1000);
+        setTimeout(showQuestion, 1500);
     } else {
-        setTimeout(showResults, 800);
+        setTimeout(showResults, 1500);
     }
 }
 
 function showResults() {
     const score = results.filter(Boolean).length;
+    const total = results.length;
+    const percentage = Math.round((score / total) * 100);
+
+    let message = "";
+    if (percentage === 100) {
+        message = "Идеально!";
+    } else if (percentage >= 80) {
+        message = "Отлично!";
+    } else if (percentage >= 60) {
+        message = "Хорошо!";
+    } else if (percentage >= 40) {
+        message = "Неплохо!";
+    } else {
+        message = "Попробуйте ещё раз!";
+    }
 
     containerEl.innerHTML = `
-        <h2>Викторина завершена!</h2>
-        <p>Вы угадали ${score} из ${results.length}</p>
-        <button id="restart-btn">Сыграть ещё раз</button>
+        <div class="results">
+            <h2>Викторина завершена!</h2>
+            <div class="score">${score} / ${total}</div>
+            <p style="font-size: 24px;">${message}</p>
+            <p style="font-size: 18px; color: var(--color-text-sub);">
+                Правильных ответов: ${percentage}%
+            </p>
+            <button id="restart-btn">Сыграть ещё раз</button>
+        </div>
     `;
 
-    // кнопка заново
     document.getElementById("restart-btn").addEventListener("click", startQuiz);
 }
 

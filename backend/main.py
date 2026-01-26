@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 import uuid
 import logging
-
+from datetime import date
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -71,10 +71,11 @@ async def auth(password: str = Form(...)):
 @backend.get("/api/quiz")
 async def quiz():
     query = """
-            SELECT id, headline, text, format, is_real, media_url, source_name
-            FROM news
-            ORDER BY RANDOM() LIMIT 3 \
-            """
+    SELECT id, headline, text, format, is_real, media_url, source_name, published_date
+    FROM news
+    ORDER BY RANDOM()
+    LIMIT 5
+    """
     rows = await database.fetch_all(query)
     return [dict(row) for row in rows]
 
@@ -88,6 +89,7 @@ async def add_news(
         is_real: str = Form(...),
         media_url: str = Form(""),
         source_name: str = Form(""),
+        published_date: str = Form(""),
 ):
     logger.info(f"Received request: password={password}, headline={headline}, format={format}, is_real={is_real}")
 
@@ -102,6 +104,11 @@ async def add_news(
     source_name_value = source_name if source_name.strip() else None
 
     try:
+        if published_date:
+            published_date_value = date.fromisoformat(published_date)
+        else:
+            published_date_value = date.today()
+
         query = news.insert().values(
             id=str(uuid.uuid4()),
             headline=headline,
@@ -110,6 +117,7 @@ async def add_news(
             is_real=is_real_bool,
             media_url=media_url_value,
             source_name=source_name_value,
+            published_date=published_date_value,
         )
         await database.execute(query)
         logger.info("News added successfully")

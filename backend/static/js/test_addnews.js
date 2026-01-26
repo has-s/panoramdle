@@ -27,8 +27,11 @@ authForm.addEventListener("submit", async e => {
         const password = fd.get("password");
         savedPassword.value = password;
         authForm.style.display = "none";
+        authResult.textContent = "";  // Очистить сообщение об ошибке
         newsForm.style.display = "block";
         title.textContent = "Добавить новость";
+        // Инициализируем превью как FAKE по умолчанию
+        updatePreview();
     } else {
         authResult.textContent = "Неверный пароль";
     }
@@ -37,15 +40,19 @@ authForm.addEventListener("submit", async e => {
 /* --- checkbox --- */
 isRealCheckbox.addEventListener("change", () => {
     isRealHidden.value = isRealCheckbox.checked ? "true" : "false";
+    updatePreview();
 });
 
-/* --- preview --- */
-newsForm.addEventListener("input", () => {
+/* --- preview update function --- */
+function updatePreview() {
     const f = newsForm;
-    previewHeadline.textContent = f.headline.value;
-    previewText.textContent = f.text.value;
-    previewIsReal.textContent = f.is_real.value === "true" ? "(FAKE)" : "(REAL)";
-    previewSource.textContent = f.source_name.value;
+    previewHeadline.textContent = f.headline.value || "Заголовок новости";
+    previewText.textContent = f.text.value || "Текст новости...";
+
+    // ИСПРАВЛЕНО: теперь правильная логика
+    previewIsReal.textContent = f.is_real.value === "true" ? "(REAL)" : "(FAKE)";
+
+    previewSource.textContent = f.source_name.value || "Источник";
 
     if ((f.format.value === "img" || f.format.value === "img_txt") && f.media_url.value) {
         previewMedia.src = f.media_url.value;
@@ -58,7 +65,10 @@ newsForm.addEventListener("input", () => {
 
     const hasContent = f.headline.value || f.text.value || f.media_url.value || f.source_name.value;
     previewContainer.style.display = hasContent ? "block" : "none";
-});
+}
+
+/* --- preview on input --- */
+newsForm.addEventListener("input", updatePreview);
 
 /* --- send news --- */
 newsForm.addEventListener("submit", async e => {
@@ -88,6 +98,7 @@ newsForm.addEventListener("submit", async e => {
         newsForm.reset();
         previewContainer.style.display = "none";
         isRealHidden.value = "false";
+        newsForm.style.display = "none";
         afterSubmit.style.display = "block";
     } else {
         alert("Ошибка при добавлении новости: " + JSON.stringify(data));
@@ -99,4 +110,6 @@ addAnother.addEventListener("click", () => {
     newsForm.style.display = "block";
     afterSubmit.style.display = "none";
     previewContainer.style.display = "none";
+    newsForm.reset();
+    isRealHidden.value = "false";
 });

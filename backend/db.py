@@ -30,5 +30,6 @@ news = sqlalchemy.Table(
     sqlalchemy.Column("is_real", sqlalchemy.Boolean, nullable=False),
     sqlalchemy.Column("media_url", sqlalchemy.String, nullable=True),
     sqlalchemy.Column("source_name", sqlalchemy.String, nullable=True),
+    sqlalchemy.Column("published_date", sqlalchemy.Date, nullable=True),
     sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=text("CURRENT_TIMESTAMP"))
 )

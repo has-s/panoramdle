@@ -44,6 +44,25 @@ button {
   cursor: pointer;
 }
 
+button:hover {
+  opacity: 0.9;
+}
+
+label {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.form-field {
+  margin-bottom: 15px;
+}
+
+.form-field label {
+  font-size: 14px;
+  color: var(--color-text-sub);
+  margin-bottom: 5px;
+}
+
 #news-form, #after-submit, #preview {
   display: none;
 }
@@ -90,46 +109,73 @@ button {
   <h2 id="title">Войти</h2>
 
   <form id="auth-form">
-    <input type="password" name="password" placeholder="Пароль">
+    <input type="password" name="password" placeholder="Пароль" required>
     <button type="submit">Войти</button>
   </form>
   <p id="auth-result"></p>
 
   <form id="news-form">
     <input type="hidden" name="password" id="saved-password">
-    <input type="text" name="headline" placeholder="Заголовок" required>
-    <textarea name="text" placeholder="Текст"></textarea>
-    <input type="text" name="media_url" placeholder="Ссылка на изображение">
-    <input type="text" name="source_name" placeholder="Источник" required>
-    <select name="format">
-      <option value="txt">txt</option>
-      <option value="img">img</option>
-      <option value="img_txt">img_txt</option>
-    </select>
-    <label>
-      <input type="checkbox" id="is_real_checkbox">
-      Реальная новость
-    </label>
-    <input type="hidden" name="is_real" id="is_real_hidden" value="false"><br>
-    <button type="submit">Добавить</button>
+
+    <div class="form-field">
+      <input type="text" name="headline" placeholder="Заголовок" required>
+    </div>
+
+    <div class="form-field">
+      <textarea name="text" placeholder="Текст новости" rows="4"></textarea>
+    </div>
+
+    <div class="form-field">
+      <input type="text" name="media_url" placeholder="Ссылка на изображение">
+    </div>
+
+    <div class="form-field">
+      <input type="text" name="source_name" placeholder="Источник" required>
+    </div>
+
+    <div class="form-field">
+      <label>Формат:</label>
+      <select name="format">
+        <option value="txt">Только текст</option>
+        <option value="img">Только изображение</option>
+        <option value="img_txt">Текст + изображение</option>
+      </select>
+    </div>
+
+    <div class="form-field">
+      <label>
+        <input type="checkbox" id="is_real_checkbox">
+        Реальная новость
+      </label>
+      <input type="hidden" name="is_real" id="is_real_hidden" value="false">
+    </div>
+
+    <div class="form-field">
+      <label for="published_date">Дата публикации:</label>
+      <input type="date" name="published_date" id="published_date">
+      <small style="color: var(--color-text-sub);">Если не указана - будет установлена сегодняшняя дата</small>
+    </div>
+
+    <button type="submit">Добавить новость</button>
   </form>
 
   <div id="after-submit">
-    <p>Новость добавлена!</p>
-    <button id="add-another">Отправить ещё</button>
+    <p>✅ Новость успешно добавлена!</p>
+    <button id="add-another">Добавить ещё одну</button>
   </div>
 </div>
 
 <div class="column" id="preview">
+  <h2>Превью</h2>
   <div class="preview-card">
-    <h3 id="preview-headline"></h3>
+    <h3 id="preview-headline">Заголовок новости</h3>
     <div class="preview-media-wrapper">
       <img id="preview-media" src="" alt="">
     </div>
-    <p id="preview-text"></p>
+    <p id="preview-text">Текст новости...</p>
     <div class="preview-footer">
-      <p class="real-fake" id="preview-is-real"></p>
-      <p id="preview-source"></p>
+      <p class="real-fake" id="preview-is-real">(FAKE)</p>
+      <p id="preview-source">Источник</p>
     </div>
   </div>
 </div>
