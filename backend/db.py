@@ -1,8 +1,8 @@
 import os
-import sqlalchemy
 from databases import Database
 from dotenv import load_dotenv
-from sqlalchemy import text
+
+from backend.models import news
 
 SCRIPT_DIR = os.path.dirname(__file__)
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
@@ -18,18 +18,6 @@ host = os.getenv("POSTGRES_HOST") or ("db" if APP_ENV == "docker" else "localhos
 
 DATABASE_URL = f"postgresql://{user}:{password}@{host}:5432/{db_name}"
 database = Database(DATABASE_URL)
-metadata = sqlalchemy.MetaData()
 
-news = sqlalchemy.Table(
-    "news",
-    metadata,
-    sqlalchemy.Column("id", sqlalchemy.String, primary_key=True),
-    sqlalchemy.Column("headline", sqlalchemy.String, nullable=False),
-    sqlalchemy.Column("text", sqlalchemy.Text, nullable=True),
-    sqlalchemy.Column("format", sqlalchemy.String, nullable=False),
-    sqlalchemy.Column("is_real", sqlalchemy.Boolean, nullable=False),
-    sqlalchemy.Column("media_url", sqlalchemy.String, nullable=True),
-    sqlalchemy.Column("source_name", sqlalchemy.String, nullable=True),
-    sqlalchemy.Column("published_date", sqlalchemy.Date, nullable=True),
-    sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=text("CURRENT_TIMESTAMP"))
-)
+# Экспортируем news из models
+__all__ = ["database", "news"]
