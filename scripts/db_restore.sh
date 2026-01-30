@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # scripts/db_restore.sh
-# Восстановление базы данных из бэкапа
 
 set -e
 
-# Проверка аргументов
 if [ -z "$1" ]; then
   echo "Usage: ./db_restore.sh <backup_file.sql> [mode]"
   echo ""
@@ -21,7 +19,6 @@ fi
 BACKUP_FILE="$1"
 MODE="${2}"
 
-# Если режим не указан, спросить у пользователя
 if [ -z "$MODE" ]; then
   echo "Select restore mode:"
   echo "  [1] Overlay - добавить данные (игнорировать дубликаты)"
@@ -43,7 +40,6 @@ if [ -z "$MODE" ]; then
   esac
 fi
 
-# Проверка существования файла
 if [ ! -f "$BACKUP_FILE" ]; then
   echo "Error: Backup file '$BACKUP_FILE' not found!"
   exit 1
@@ -52,7 +48,6 @@ fi
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 PROJECT_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 
-# Определение окружения
 APP_ENV=${APP_ENV:-docker}
 if [ "$APP_ENV" = "docker" ]; then
   ENV_FILE="$PROJECT_ROOT/.env.docker"
@@ -62,7 +57,6 @@ else
   CONTAINER_NAME="db"
 fi
 
-# Загрузка переменных окружения
 if [ ! -f "$ENV_FILE" ]; then
   echo "Error: $ENV_FILE not found!"
   exit 1
@@ -70,7 +64,6 @@ fi
 
 export $(grep -v '^#' "$ENV_FILE" | xargs)
 
-# Проверка, что контейнер запущен
 if ! docker ps | grep -q "$CONTAINER_NAME"; then
   echo "Error: Container '$CONTAINER_NAME' is not running!"
   exit 1
@@ -91,30 +84,24 @@ TMP_FILE=$(mktemp)
 if [ "$MODE" = "replace" ]; then
   echo "Mode: Full replace (TRUNCATE + INSERT)"
 
-  # Очистка таблицы
   echo "Truncating table 'news'..."
   docker exec -i "$CONTAINER_NAME" \
     psql -U "$POSTGRES_USER" "$POSTGRES_DB" -c "TRUNCATE TABLE news CASCADE;"
 
-  # Восстановление без модификаций
   cat "$BACKUP_FILE" > "$TMP_FILE"
 
 else
   echo "Mode: Overlay (ON CONFLICT DO NOTHING)"
 
-  # Модификация INSERT для игнорирования конфликтов по headline
   sed -E 's/INSERT INTO news \(([^)]+)\) VALUES \(([^)]+)\);/INSERT INTO news (\1) VALUES (\2) ON CONFLICT (headline) DO NOTHING;/' "$BACKUP_FILE" > "$TMP_FILE"
 fi
 
-# Восстановление
 echo "Restoring database..."
 docker exec -i "$CONTAINER_NAME" \
   psql -U "$POSTGRES_USER" "$POSTGRES_DB" < "$TMP_FILE"
 
-# Очистка временного файла
 rm "$TMP_FILE"
 
-# Проверка количества записей
 COUNT=$(docker exec -i "$CONTAINER_NAME" \
   psql -U "$POSTGRES_USER" "$POSTGRES_DB" -t -c "SELECT COUNT(*) FROM news;")
 

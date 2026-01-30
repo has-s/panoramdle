@@ -46,6 +46,11 @@ fi
 echo "✓ Backup saved to $FILE"
 echo "  Size: $(du -h "$FILE" | cut -f1)"
 
-# Опционально: удаление старых бэкапов (старше 30 дней)
-#find "$BACKUP_DIR" -name "newsdb_*.sql" -mtime +30 -delete 2>/dev/null || true
-#echo "✓ Old backups cleaned up (>30 days)"
+BACKUP_COUNT=$(ls -1 "$BACKUP_DIR"/newsdb_*.sql 2>/dev/null | wc -l)
+if [ "$BACKUP_COUNT" -gt 5 ]; then
+  echo ""
+  echo "Cleaning up old backups (keeping last 5)..."
+  BACKUPS_TO_DELETE=$((BACKUP_COUNT - 5))
+  ls -1t "$BACKUP_DIR"/newsdb_*.sql | tail -n +6 | xargs rm -f
+  echo "✓ Removed $BACKUPS_TO_DELETE old backup(s)"
+fi
