@@ -1,5 +1,5 @@
 # Makefile для panoramdle
-.PHONY: help build up down restart logs status clean backup restore deploy nginx-reload nginx-test db-init db-seed db-status health
+.PHONY: help create-admin build up down restart logs status clean backup restore deploy nginx-reload nginx-test db-init db-status health migrate bootstrap-admin first-run
 
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
@@ -52,9 +52,13 @@ clean: ## Очистить неиспользуемые Docker ресурсы
 
 ##@ Database
 
-db-init: ## Инициализировать базу данных
-	@echo "$(GREEN)Initializing database...$(NC)"
-	./scripts/db_init.sh
+migrate: ## Применить миграции БД
+	@echo "$(GREEN)Applying database migrations...$(NC)"
+	@./scripts/migrate.sh
+
+db-init: ## Инициализировать базу данных (deprecated - используйте migrate)
+	@echo "$(YELLOW)Note: db-init is deprecated. Use 'make migrate' instead$(NC)"
+	@./scripts/db_init.sh
 
 db-status: ## Показать статус БД
 	./scripts/db_status.sh
@@ -81,7 +85,17 @@ db-clean: ## Очистить БД
 	./scripts/db_clean.sh
 
 db-shell: ## Открыть psql в БД
-	docker-compose exec panoramdle_db psql -U postgres newsdb
+	docker-compose exec panoramdle_db sh -c 'psql -U $$POSTGRES_USER $$POSTGRES_DB'
+
+##@ User Management
+
+create-admin: ## Создать администратора (интерактивно)
+	@echo "$(GREEN)Creating administrator (interactive mode)...$(NC)"
+	@./scripts/create_admin.sh
+
+bootstrap-admin: ## Создать администратора из .env (автоматически)
+	@echo "$(GREEN)Creating administrator from environment variables...$(NC)"
+	@USE_ENV_VARS=true ./scripts/create_admin.sh
 
 ##@ Nginx (on host)
 
@@ -116,7 +130,7 @@ shell-backend: ## Открыть shell в контейнере backend
 	docker-compose exec panoramdle_backend sh
 
 shell-db: ## Открыть psql в БД
-	docker-compose exec panoramdle_db psql -U postgres newsdb
+	docker-compose exec panoramdle_db psql -U docker_user newsdb
 
 ##@ Deployment
 
@@ -132,14 +146,14 @@ health: ## Проверить здоровье сервисов
 	@echo "$(GREEN)=== Backend Health ===$(NC)"
 	@if [ -f .env.docker ]; then \
 		source .env.docker && \
-		BACKEND_PORT=${BACKEND_PORT:-8000} && \
-		curl -f http://localhost:$BACKEND_PORT/health 2>/dev/null && echo "$(GREEN)✓ Backend OK$(NC)" || echo "$(RED)✗ Backend DOWN$(NC)"; \
+		BACKEND_PORT=$${BACKEND_PORT:-8000} && \
+		curl -f http://localhost:$$BACKEND_PORT/health 2>/dev/null && echo "$(GREEN)✓ Backend OK$(NC)" || echo "$(RED)✗ Backend DOWN$(NC)"; \
 	else \
 		curl -f http://localhost:8000/health 2>/dev/null && echo "$(GREEN)✓ Backend OK$(NC)" || echo "$(RED)✗ Backend DOWN$(NC)"; \
 	fi
 	@echo ""
 	@echo "$(GREEN)=== Database Health ===$(NC)"
-	@docker-compose exec panoramdle_db pg_isready -U postgres 2>/dev/null && echo "$(GREEN)✓ Database OK$(NC)" || echo "$(RED)✗ Database DOWN$(NC)"
+	@docker-compose exec panoramdle_db pg_isready -U docker_user 2>/dev/null && echo "$(GREEN)✓ Database OK$(NC)" || echo "$(RED)✗ Database DOWN$(NC)"
 
 ##@ Monitoring
 
@@ -151,21 +165,20 @@ disk: ## Показать использование диска
 	docker system df
 	@echo ""
 	@echo "$(GREEN)=== Database Size ===$(NC)"
-	@docker-compose exec panoramdle_db psql -U postgres newsdb -c "SELECT pg_size_pretty(pg_database_size('newsdb'));" 2>/dev/null || echo "Database not available"
+	@docker-compose exec panoramdle_db psql -U docker_user newsdb -c "SELECT pg_size_pretty(pg_database_size('newsdb'));" 2>/dev/null || echo "Database not available"
 
 ##@ Quick Start
 
-first-run: ## Первый запуск проекта (build + init + up)
-	@echo "$(GREEN)=== First Run Setup ===$(NC)"
-	@make build
-	@make up
-	@sleep 5
-	@make db-init
+first-run: up migrate bootstrap-admin ## Первый запуск проекта (up + migrate + create admin)
 	@echo ""
-	@echo "$(GREEN)✓ Setup complete!$(NC)"
+	@echo "$(GREEN)✓ First run setup complete!$(NC)"
+	@echo ""
+	@echo "Access the application at http://localhost:8000"
+	@echo "Admin credentials are in your .env file"
 	@echo ""
 	@echo "Next steps:"
-	@echo "  - Add news at: http://localhost:8000/addnews"
-	@echo "  - Install Nginx config: make nginx-install"
-	@echo "  - Check status: make status"
+	@echo "  - Login at: http://localhost:8000/moderation/login"
+	@echo "  - Change password at: http://localhost:8000/moderation/"
+	@echo "  - Add news at: http://localhost:8000/moderation/news/add"
+	@echo "  - View status: make status"
 	@echo "  - View logs: make logs"
