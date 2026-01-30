@@ -1,9 +1,4 @@
-const authForm = document.getElementById("auth-form");
 const newsForm = document.getElementById("news-form");
-const authResult = document.getElementById("auth-result");
-const title = document.getElementById("title");
-
-const savedPassword = document.getElementById("saved-password");
 const isRealCheckbox = document.getElementById("is_real_checkbox");
 const isRealHidden = document.getElementById("is_real_hidden");
 
@@ -17,26 +12,6 @@ const previewSource = document.getElementById("preview-source");
 const afterSubmit = document.getElementById("after-submit");
 const addAnother = document.getElementById("add-another");
 
-/* --- auth --- */
-authForm.addEventListener("submit", async e => {
-    e.preventDefault();
-    const fd = new FormData(authForm);
-    const resp = await fetch("/api/auth", { method: "POST", body: fd });
-    const data = await resp.json();
-    if (data.ok) {
-        const password = fd.get("password");
-        savedPassword.value = password;
-        authForm.style.display = "none";
-        authResult.textContent = "";  // Очистить сообщение об ошибке
-        newsForm.style.display = "block";
-        title.textContent = "Добавить новость";
-        // Инициализируем превью как FAKE по умолчанию
-        updatePreview();
-    } else {
-        authResult.textContent = "Неверный пароль";
-    }
-});
-
 /* --- checkbox --- */
 isRealCheckbox.addEventListener("change", () => {
     isRealHidden.value = isRealCheckbox.checked ? "true" : "false";
@@ -49,7 +24,6 @@ function updatePreview() {
     previewHeadline.textContent = f.headline.value || "Заголовок новости";
     previewText.textContent = f.text.value || "Текст новости...";
 
-    // ИСПРАВЛЕНО: теперь правильная логика
     previewIsReal.textContent = f.is_real.value === "true" ? "(REAL)" : "(FAKE)";
 
     previewSource.textContent = f.source_name.value || "Источник";
@@ -91,7 +65,7 @@ newsForm.addEventListener("submit", async e => {
     }
 
     const fd = new FormData(newsForm);
-    const resp = await fetch("/api/addnews", { method: "POST", body: fd });
+    const resp = await fetch("/api/news/add", { method: "POST", body: fd });
     const data = await resp.json();
 
     if (resp.ok && data.ok) {

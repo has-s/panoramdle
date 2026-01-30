@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление пользователями - Panoramdle</title>
+    <style>
+        :root {
+            --color-bg: #fffcf2;
+            --color-bg-sub: #ccc5b9;
+            --color-text: #252422;
+            --color-text-sub: #403d39;
+            --color-contrast: #c1292e;
+            --color-success: #2d6a4f;
+        }
+
+        body {
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            font-family: sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--color-text-sub);
+        }
+
+        .header h1 {
+            margin: 0;
+        }
+
+        .user-info {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .nav-links a {
+            padding: 8px 16px;
+            background-color: var(--color-bg-sub);
+            color: var(--color-text);
+            text-decoration: none;
+            border-radius: 4px;
+        }
+
+        .nav-links a:hover {
+            background-color: var(--color-text-sub);
+            color: var(--color-bg);
+        }
+
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            margin-top: 0;
+            color: var(--color-text);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--color-bg-sub);
+        }
+
+        th {
+            background-color: var(--color-bg-sub);
+            font-weight: bold;
+        }
+
+        tr:hover {
+            background-color: var(--color-bg);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .badge-admin {
+            background-color: var(--color-contrast);
+            color: white;
+        }
+
+        .badge-moderator {
+            background-color: var(--color-success);
+            color: white;
+        }
+
+        .badge-active {
+            background-color: var(--color-success);
+            color: white;
+        }
+
+        .badge-inactive {
+            background-color: #999;
+            color: white;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 5px;
+        }
+
+        button.primary {
+            background-color: var(--color-contrast);
+            color: white;
+        }
+
+        button.secondary {
+            background-color: var(--color-bg-sub);
+            color: var(--color-text);
+        }
+
+        button.success {
+            background-color: var(--color-success);
+            color: white;
+        }
+
+        button.danger {
+            background-color: var(--color-contrast);
+            color: white;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: var(--color-text-sub);
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--color-bg-sub);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal-content h3 {
+            margin-top: 0;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Управление пользователями</h1>
+            <div class="user-info">
+                <span id="current-user"></span>
+                <button class="secondary" onclick="logout()">Выйти</button>
+            </div>
+        </div>
+
+        <div class="nav-links">
+            <a href="/moderation/news/add">Добавить новость</a>
+            <a href="/">Квиз</a>
+        </div>
+
+        <div id="message-container"></div>
+
+        <!-- Мой профиль -->
+        <div class="section">
+            <h2>Мой профиль</h2>
+            <div id="my-profile">
+                <p><strong>Username:</strong> <span id="profile-username"></span></p>
+                <p><strong>Email:</strong> <span id="profile-email"></span></p>
+                <p><strong>Роль:</strong> <span id="profile-role"></span></p>
+
+                <button class="primary" onclick="openChangePasswordModal()">Изменить пароль</button>
+                <button class="secondary" onclick="openChangeEmailModal()">Изменить email</button>
+            </div>
+        </div>
+
+        <!-- Список пользователей (только для admin) -->
+        <div class="section hidden" id="users-section">
+            <h2>Все модераторы</h2>
+            <button class="success" onclick="openCreateUserModal()">+ Создать модератора</button>
+
+            <table id="users-table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Роль</th>
+                        <th>Статус</th>
+                        <th>Последний вход</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="users-list">
+
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Модальное окно: Смена пароля -->
+    <div class="modal" id="change-password-modal">
+        <div class="modal-content">
+            <h3>Изменить пароль</h3>
+            <form id="change-password-form">
+                <div class="form-group">
+                    <label>Старый пароль:</label>
+                    <input type="password" name="old_password" required>
+                </div>
+                <div class="form-group">
+                    <label>Новый пароль:</label>
+                    <input type="password" name="new_password" required>
+                </div>
+                <div class="form-group">
+                    <label>Повторите новый пароль:</label>
+                    <input type="password" name="new_password_confirm" required>
+                </div>
+                <button type="submit" class="primary">Сохранить</button>
+                <button type="button" class="secondary" onclick="closeModal('change-password-modal')">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно: Смена email -->
+    <div class="modal" id="change-email-modal">
+        <div class="modal-content">
+            <h3>Изменить email</h3>
+            <form id="change-email-form">
+                <div class="form-group">
+                    <label>Новый email:</label>
+                    <input type="email" name="email">
+                </div>
+                <button type="submit" class="primary">Сохранить</button>
+                <button type="button" class="secondary" onclick="closeModal('change-email-modal')">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно: Создать пользователя -->
+    <div class="modal" id="create-user-modal">
+        <div class="modal-content">
+            <h3>Создать модератора</h3>
+            <form id="create-user-form">
+                <div class="form-group">
+                    <label>Username:</label>
+                    <input type="text" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label>Пароль:</label>
+                    <input type="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" name="email">
+                </div>
+                <div class="form-group">
+                    <label>Роль:</label>
+                    <select name="role">
+                        <option value="moderator">Moderator</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <button type="submit" class="success">Создать</button>
+                <button type="button" class="secondary" onclick="closeModal('create-user-modal')">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно: Сброс пароля -->
+    <div class="modal" id="reset-password-modal">
+        <div class="modal-content">
+            <h3>Сбросить пароль</h3>
+            <p>Username: <strong id="reset-username"></strong></p>
+            <form id="reset-password-form">
+                <input type="hidden" name="user_id" id="reset-user-id">
+                <div class="form-group">
+                    <label>Новый пароль:</label>
+                    <input type="password" name="new_password" required>
+                </div>
+                <div class="form-group">
+                    <label>Повторите пароль:</label>
+                    <input type="password" name="new_password_confirm" required>
+                </div>
+                <button type="submit" class="primary">Сбросить</button>
+                <button type="button" class="secondary" onclick="closeModal('reset-password-modal')">Отмена</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let allUsers = [];
+
+        // Загрузка данных при открытии страницы
+        async function init() {
+            try {
+                // Получаем информацию о текущем пользователе
+                const meResp = await fetch('/api/users/me');
+                currentUser = await meResp.json();
+
+                document.getElementById('current-user').textContent =
+                    `${currentUser.username} (${currentUser.role})`;
+                document.getElementById('profile-username').textContent = currentUser.username;
+                document.getElementById('profile-email').textContent = currentUser.email || 'Не указан';
+                document.getElementById('profile-role').textContent = currentUser.role;
+
+                // Если админ - загружаем список всех пользователей
+                if (currentUser.role === 'admin') {
+                    document.getElementById('users-section').classList.remove('hidden');
+                    await loadUsers();
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки:', error);
+                window.location.href = '/moderation/login';
+            }
+        }
+
+        // Загрузка списка пользователей (только admin)
+        async function loadUsers() {
+            try {
+                const resp = await fetch('/api/users/list');
+                allUsers = await resp.json();
+
+                const tbody = document.getElementById('users-list');
+                tbody.innerHTML = allUsers.map(user => `
+                    <tr>
+                        <td>${user.username}</td>
+                        <td>${user.email || '-'}</td>
+                        <td><span class="badge badge-${user.role}">${user.role}</span></td>
+                        <td><span class="badge badge-${user.is_active ? 'active' : 'inactive'}">${user.is_active ? 'Активен' : 'Неактивен'}</span></td>
+                        <td>${user.last_login ? new Date(user.last_login).toLocaleString('ru-RU') : 'Никогда'}</td>
+                        <td>
+                            ${user.id !== currentUser.id ? `
+                                <button class="secondary" onclick="openResetPasswordModal(${user.id}, '${user.username}')">Сбросить пароль</button>
+                                ${user.is_active ?
+                                    `<button class="secondary" onclick="deactivateUser(${user.id})">Деактивировать</button>` :
+                                    `<button class="success" onclick="activateUser(${user.id})">Активировать</button>`
+                                }
+                                <button class="danger" onclick="deleteUser(${user.id}, '${user.username}')">Удалить</button>
+                            ` : '<em>Это вы</em>'}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                showMessage('Ошибка загрузки списка пользователей', 'error');
+            }
+        }
+
+        // Модальные окна
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function openChangePasswordModal() {
+            openModal('change-password-modal');
+        }
+
+        function openChangeEmailModal() {
+            document.querySelector('#change-email-form input[name="email"]').value = currentUser.email || '';
+            openModal('change-email-modal');
+        }
+
+        function openCreateUserModal() {
+            document.getElementById('create-user-form').reset();
+            openModal('create-user-modal');
+        }
+
+        function openResetPasswordModal(userId, username) {
+            document.getElementById('reset-user-id').value = userId;
+            document.getElementById('reset-username').textContent = username;
+            document.getElementById('reset-password-form').reset();
+            openModal('reset-password-modal');
+        }
+
+        // Сообщения
+        function showMessage(text, type = 'success') {
+            const container = document.getElementById('message-container');
+            container.innerHTML = `<div class="message ${type}">${text}</div>`;
+            setTimeout(() => container.innerHTML = '', 5000);
+        }
+
+        // Формы
+        document.getElementById('change-password-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+
+            if (formData.get('new_password') !== formData.get('new_password_confirm')) {
+                showMessage('Пароли не совпадают', 'error');
+                return;
+            }
+
+            try {
+                const resp = await fetch('/api/users/change-password', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await resp.json();
+
+                if (data.ok) {
+                    showMessage('Пароль успешно изменён');
+                    closeModal('change-password-modal');
+                    e.target.reset();
+                } else {
+                    showMessage(data.error || 'Ошибка', 'error');
+                }
+            } catch (error) {
+                showMessage('Ошибка сервера', 'error');
+            }
+        });
+
+        document.getElementById('change-email-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+
+            try {
+                const resp = await fetch('/api/users/update-email', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await resp.json();
+
+                if (data.ok) {
+                    showMessage('Email успешно изменён');
+                    closeModal('change-email-modal');
+                    currentUser.email = formData.get('email');
+                    document.getElementById('profile-email').textContent = currentUser.email || 'Не указан';
+                } else {
+                    showMessage(data.error || 'Ошибка', 'error');
+                }
+            } catch (error) {
+                showMessage('Ошибка сервера', 'error');
+            }
+        });
+
+        document.getElementById('create-user-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+
+            try {
+                const resp = await fetch('/api/users/create', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await resp.json();
+
+                if (data.ok) {
+                    showMessage('Модератор создан');
+                    closeModal('create-user-modal');
+                    e.target.reset();
+                    await loadUsers();
+                } else {
+                    showMessage(data.error || 'Ошибка', 'error');
+                }
+            } catch (error) {
+                showMessage('Ошибка сервера', 'error');
+            }
+        });
+
+        document.getElementById('reset-password-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+
+            if (formData.get('new_password') !== formData.get('new_password_confirm')) {
+                showMessage('Пароли не совпадают', 'error');
+                return;
+            }
+
+            const userId = formData.get('user_id');
+
+            try {
+                const resp = await fetch(`/api/users/${userId}/reset-password`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await resp.json();
+
+                if (data.ok) {
+                    showMessage('Пароль успешно сброшен');
+                    closeModal('reset-password-modal');
+                    e.target.reset();
+                } else {
+                    showMessage(data.error || 'Ошибка', 'error');
+                }
+            } catch (error) {
+                showMessage('Ошибка сервера', 'error');
+            }
+        });
+
+        // Действия с пользователями
+        async function deactivateUser(userId) {
+            if (!confirm('Деактивировать этого пользователя?')) return;
+
+            try {
+                const resp = await fetch(`/api/users/${userId}/deactivate`, { method: 'POST' });
+                const data = await resp.json();
+
+                if (data.ok) {
+                    showMessage('Пользователь деактивирован');
+                    await loadUsers();
+                } else {
+                    showMessage(data.error || 'Ошибка', 'error');
+                }
+            } catch (error) {
+                showMessage('Ошибка сервера', 'error');
+            }
+        }
+
+        async function activateUser(userId) {
+            try {
+                const resp = await fetch(`/api/users/${userId}/activate`, { method: 'POST' });
+                const data = await resp.json();
+
+                if (data.ok) {
+                    showMessage('Пользователь активирован');
+                    await loadUsers();
+                } else {
+                    showMessage(data.error || 'Ошибка', 'error');
+                }
+            } catch (error) {
+                showMessage('Ошибка сервера', 'error');
+            }
+        }
+
+        async function deleteUser(userId, username) {
+            if (!confirm(`Удалить пользователя ${username}? Это действие необратимо!`)) return;
+
+            try {
+                const resp = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
+                const data = await resp.json();
+
+                if (data.ok) {
+                    showMessage('Пользователь удалён');
+                    await loadUsers();
+                } else {
+                    showMessage(data.error || 'Ошибка', 'error');
+                }
+            } catch (error) {
+                showMessage('Ошибка сервера', 'error');
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                window.location.href = '/moderation/login';
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        }
+
+        // Инициализация
+        init();
+    </script>
+</body>
+</html>

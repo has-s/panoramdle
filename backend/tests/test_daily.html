@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>News Quiz</title>
+    <title>News Daily</title>
     <style>
         :root {
             --color-bg: #fffcf2;
@@ -22,7 +22,7 @@
             padding: 20px;
         }
 
-        #quiz-container {
+        #daily-container {
             max-width: 700px;
             margin: 0 auto;
             text-align: center;
@@ -157,18 +157,18 @@
     </style>
 </head>
 <body>
-<div id="quiz-container">
+<div id="daily-container">
     <div class="loading">
         <p>Загрузка квиза...</p>
     </div>
 </div>
 
 <script>
-let quizData = [];
+let dailyData = [];
 let currentIndex = 0;
 let results = [];
 
-const containerEl = document.getElementById("quiz-container");
+const containerEl = document.getElementById("daily-container");
 
 function setupButtons() {
     const trueBtn = document.getElementById("true-btn");
@@ -180,15 +180,15 @@ function setupButtons() {
     }
 }
 
-async function startQuiz() {
+async function startDaily() {
     try {
-        const response = await fetch("/api/quiz");
+        const response = await fetch("/api/daily");
         if (!response.ok) {
             throw new Error("Ошибка загрузки квиза");
         }
-        quizData = await response.json();
+        dailyData = await response.json();
 
-        if (quizData.length === 0) {
+        if (dailyData.length === 0) {
             containerEl.innerHTML = `
                 <div class="results">
                     <h2>Нет доступных новостей</h2>
@@ -209,13 +209,13 @@ async function startQuiz() {
                 <button id="restart-btn">Попробовать снова</button>
             </div>
         `;
-        document.getElementById("restart-btn").addEventListener("click", startQuiz);
+        document.getElementById("restart-btn").addEventListener("click", startDaily);
     }
 }
 
 function showQuestion() {
-    const news = quizData[currentIndex];
-    const progress = `Вопрос ${currentIndex + 1} из ${quizData.length}`;
+    const news = dailyData[currentIndex];
+    const progress = `Вопрос ${currentIndex + 1} из ${dailyData.length}`;
 
     // Форматирование даты
     let dateStr = "";
@@ -246,7 +246,7 @@ function showQuestion() {
 }
 
 function answer(isReal) {
-    const news = quizData[currentIndex];
+    const news = dailyData[currentIndex];
     const correct = isReal === news.is_real;
     results.push(correct);
 
@@ -258,7 +258,7 @@ function answer(isReal) {
     document.getElementById("false-btn").disabled = true;
 
     currentIndex++;
-    if (currentIndex < quizData.length) {
+    if (currentIndex < dailyData.length) {
         setTimeout(showQuestion, 1500);
     } else {
         setTimeout(showResults, 1500);
@@ -295,10 +295,10 @@ function showResults() {
         </div>
     `;
 
-    document.getElementById("restart-btn").addEventListener("click", startQuiz);
+    document.getElementById("restart-btn").addEventListener("click", startDaily);
 }
 
-window.onload = startQuiz;
+window.onload = startDaily;
 </script>
 </body>
 </html>
