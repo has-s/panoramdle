@@ -24,10 +24,14 @@ jobs:
         script: |
           cd ${{ secrets.PROJECT_PATH }}
           
-          # Pull latest changes
           git pull origin main
           
-          # Run deployment script (с автоматическим бэкапом)
+          echo "Applying database migrations..."
+          ./scripts/migrate.sh
+          
+          echo "Checking for admin user..."
+          USE_ENV_VARS=true ./scripts/create_admin.sh || echo "Admin already exists or creation skipped"
+          
           chmod +x scripts/*.sh
           ./scripts/deploy.sh
           
@@ -44,22 +48,35 @@ jobs:
         script: |
           cd ${{ secrets.PROJECT_PATH }}
           
-          # Загрузить порт из .env.docker
           source .env.docker
           BACKEND_PORT=${BACKEND_PORT:-8000}
           
-          # Ждем готовности backend (до 60 секунд)
           echo "Waiting for backend to be ready on port $BACKEND_PORT..."
           for i in {1..12}; do
+          
+            CONTAINER_STATUS=$(docker inspect panoramdle_backend --format='{{.State.Status}}' 2>/dev/null || echo "not_found")
+            
+            if [ "$CONTAINER_STATUS" = "restarting" ]; then
+              echo "✗ Container is in restart loop! Aborting."
+              docker-compose logs --tail=100 backend
+              exit 1
+            fi
+            
+            if [ "$CONTAINER_STATUS" != "running" ]; then
+              echo "✗ Container status: $CONTAINER_STATUS"
+              docker-compose logs --tail=100 backend
+              exit 1
+            fi
+            
             if curl -f http://localhost:$BACKEND_PORT/health > /dev/null 2>&1; then
               echo "✓ Backend is healthy!"
               break
             fi
-            echo "Attempt $i/12..."
+            
+            echo "Attempt $i/12... (container: $CONTAINER_STATUS)"
             sleep 5
           done
           
-          # Финальная проверка
           if ! curl -f http://localhost:$BACKEND_PORT/health; then
             echo "✗ Health check failed!"
             docker-compose logs --tail=50 backend
