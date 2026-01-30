@@ -9,14 +9,12 @@ tests = Jinja2Templates(directory="backend/tests")
 
 
 @router.get("/", response_class=HTMLResponse)
-async def quiz_page(request: Request):
-    """Страница квиза (временная тестовая версия)"""
-    return tests.TemplateResponse("test_quiz.html", {"request": request})
+async def daily_page(request: Request):
+    return tests.TemplateResponse("test_daily.html", {"request": request})
 
 
-@router.get("/api/quiz")
-async def get_quiz():
-    """API: Получить 5 случайных новостей для квиза"""
+@router.get("/api/daily")
+async def get_daily():
     query = """
     SELECT id, headline, text, format, is_real, media_url, source_name, published_date
     FROM news
