@@ -2,13 +2,14 @@ fastapi~=0.124.2
 uvicorn[standard]
 jinja2
 
-databases
-sqlalchemy
+databases~=0.9.0
+sqlalchemy~=2.0.45
 asyncpg
 
-python-dotenv
+python-dotenv~=1.2.1
 psycopg2-binary
 
-uuid
+uuid~=1.30
 
 python-multipart
+bcrypt~=5.0.0
