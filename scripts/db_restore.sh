@@ -51,10 +51,10 @@ PROJECT_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 APP_ENV=${APP_ENV:-docker}
 if [ "$APP_ENV" = "docker" ]; then
   ENV_FILE="$PROJECT_ROOT/.env.docker"
-  CONTAINER_NAME="db"
+  CONTAINER_NAME="panoramdle_db"
 else
   ENV_FILE="$PROJECT_ROOT/.env.local"
-  CONTAINER_NAME="db"
+  CONTAINER_NAME="panoramdle_db"
 fi
 
 if [ ! -f "$ENV_FILE" ]; then
