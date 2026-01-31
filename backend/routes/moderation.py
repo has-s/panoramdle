@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Form
+from fastapi import APIRouter, Request, Form, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from datetime import date
@@ -6,31 +6,30 @@ import uuid
 import logging
 
 from backend.db import database
-from backend.models.news import news
-from backend.services.password import check_password
+from backend.models import news
+from backend.models.auth import moderators
+from backend.middleware import require_auth, require_admin, get_client_ip
+from backend.services.auth import log_action, hash_password, verify_password
 
 router = APIRouter()
 tests = Jinja2Templates(directory="backend/tests")
 logger = logging.getLogger(__name__)
 
 
-@router.get("/addnews", response_class=HTMLResponse)
-async def addnews_page(request: Request):
-    """Страница добавления новости (временная тестовая версия)"""
+@router.get("/moderation/", response_class=HTMLResponse)
+async def moderation_home(request: Request, moderator: dict = Depends(require_auth)):
+    return tests.TemplateResponse("test_moderation.html", {"request": request})
+
+
+@router.get("/moderation/news/add", response_class=HTMLResponse)
+async def add_news_page(request: Request):
     return tests.TemplateResponse("test_addnews.html", {"request": request})
 
 
-@router.post("/api/auth")
-async def auth(password: str = Form(...)):
-    """API: Проверка пароля для доступа к модерации"""
-    if check_password(password):
-        return {"ok": True}
-    return {"ok": False}
-
-
-@router.post("/api/addnews")
+@router.post("/api/news/add")
 async def add_news(
-        password: str = Form(...),
+        request: Request,
+        moderator: dict = Depends(require_auth),
         headline: str = Form(...),
         text: str = Form(""),
         format: str = Form(...),
@@ -39,15 +38,9 @@ async def add_news(
         source_name: str = Form(""),
         published_date: str = Form(""),
 ):
-    """API: Добавить новую новость"""
-    logger.info(f"Received request: password={password}, headline={headline}, format={format}, is_real={is_real}")
-
-    if not check_password(password):
-        logger.warning("Invalid password attempt")
-        return JSONResponse({"error": "Invalid password", "ok": False}, status_code=403)
+    logger.info(f"Moderator {moderator['username']} adding news: {headline}")
 
     is_real_bool = is_real.lower() == "true"
-
     text_value = text if text.strip() else None
     media_url_value = media_url if media_url.strip() else None
     source_name_value = source_name if source_name.strip() else None
@@ -58,8 +51,10 @@ async def add_news(
         else:
             published_date_value = date.today()
 
+        news_id = str(uuid.uuid4())
+
         query = news.insert().values(
-            id=str(uuid.uuid4()),
+            id=news_id,
             headline=headline,
             text=text_value,
             format=format,
@@ -69,8 +64,305 @@ async def add_news(
             published_date=published_date_value,
         )
         await database.execute(query)
-        logger.info("News added successfully")
+
+        await log_action(
+            moderator_id=moderator["id"],
+            action="create_news",
+            target_type="news",
+            target_id=news_id,
+            details={
+                "headline": headline,
+                "is_real": is_real_bool,
+                "format": format
+            },
+            ip_address=get_client_ip(request)
+        )
+
+        logger.info(f"News added by {moderator['username']}: {news_id}")
         return {"ok": True}
     except Exception as e:
         logger.error(f"Database error: {str(e)}")
         return JSONResponse({"error": str(e), "ok": False}, status_code=500)
+
+
+@router.get("/api/users/me")
+async def get_current_user(moderator: dict = Depends(require_auth)):
+    return {
+        "id": moderator["id"],
+        "username": moderator["username"],
+        "email": moderator["email"],
+        "role": moderator["role"],
+        "created_at": str(moderator["created_at"]),
+        "last_login": str(moderator["last_login"]) if moderator["last_login"] else None
+    }
+
+
+@router.post("/api/users/change-password")
+async def change_own_password(
+        request: Request,
+        moderator: dict = Depends(require_auth),
+        old_password: str = Form(...),
+        new_password: str = Form(...),
+):
+    query = moderators.select().where(moderators.c.id == moderator["id"])
+    user = await database.fetch_one(query)
+
+    if not verify_password(old_password, user.password_hash):
+        return JSONResponse(
+            {"ok": False, "error": "Неверный старый пароль"},
+            status_code=400
+        )
+
+    new_hash = hash_password(new_password)
+    update_query = moderators.update().where(
+        moderators.c.id == moderator["id"]
+    ).values(password_hash=new_hash)
+
+    await database.execute(update_query)
+
+    await log_action(
+        moderator_id=moderator["id"],
+        action="change_password",
+        target_type="moderator",
+        target_id=str(moderator["id"]),
+        ip_address=get_client_ip(request)
+    )
+
+    logger.info(f"Password changed for user: {moderator['username']}")
+
+    return {"ok": True}
+
+
+@router.post("/api/users/update-email")
+async def update_own_email(
+        request: Request,
+        moderator: dict = Depends(require_auth),
+        email: str = Form(...),
+):
+    update_query = moderators.update().where(
+        moderators.c.id == moderator["id"]
+    ).values(email=email if email.strip() else None)
+
+    await database.execute(update_query)
+
+    await log_action(
+        moderator_id=moderator["id"],
+        action="update_email",
+        target_type="moderator",
+        target_id=str(moderator["id"]),
+        details={"new_email": email},
+        ip_address=get_client_ip(request)
+    )
+
+    logger.info(f"Email updated for user: {moderator['username']}")
+
+    return {"ok": True}
+
+
+@router.get("/api/users/list")
+async def list_users(admin: dict = Depends(require_admin)):
+    query = moderators.select().order_by(moderators.c.created_at.desc())
+    users = await database.fetch_all(query)
+
+    return [
+        {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+            "is_active": user.is_active,
+            "created_at": str(user.created_at),
+            "last_login": str(user.last_login) if user.last_login else None
+        }
+        for user in users
+    ]
+
+
+@router.post("/api/users/create")
+async def create_user(
+        request: Request,
+        admin: dict = Depends(require_admin),
+        username: str = Form(...),
+        password: str = Form(...),
+        email: str = Form(""),
+        role: str = Form("moderator"),
+):
+    check_query = moderators.select().where(moderators.c.username == username)
+    existing = await database.fetch_one(check_query)
+
+    if existing:
+        return JSONResponse(
+            {"ok": False, "error": "Пользователь с таким username уже существует"},
+            status_code=400
+        )
+
+    password_hash = hash_password(password)
+
+    insert_query = moderators.insert().values(
+        username=username,
+        password_hash=password_hash,
+        email=email if email.strip() else None,
+        role=role,
+        is_active=True,
+        created_by=admin["id"]
+    )
+
+    new_id = await database.execute(insert_query)
+
+    await log_action(
+        moderator_id=admin["id"],
+        action="create_moderator",
+        target_type="moderator",
+        target_id=str(new_id),
+        details={"username": username, "role": role},
+        ip_address=get_client_ip(request)
+    )
+
+    logger.info(f"User created by {admin['username']}: {username}")
+
+    return {"ok": True, "id": new_id}
+
+
+@router.post("/api/users/{user_id}/reset-password")
+async def reset_user_password(
+        user_id: int,
+        request: Request,
+        admin: dict = Depends(require_admin),
+        new_password: str = Form(...),
+):
+    if user_id == admin["id"]:
+        return JSONResponse(
+            {"ok": False, "error": "Используйте функцию смены пароля для себя"},
+            status_code=400
+        )
+
+    check_query = moderators.select().where(moderators.c.id == user_id)
+    user = await database.fetch_one(check_query)
+
+    if not user:
+        return JSONResponse(
+            {"ok": False, "error": "Пользователь не найден"},
+            status_code=404
+        )
+
+    new_hash = hash_password(new_password)
+    update_query = moderators.update().where(
+        moderators.c.id == user_id
+    ).values(password_hash=new_hash)
+
+    await database.execute(update_query)
+
+    await log_action(
+        moderator_id=admin["id"],
+        action="reset_password",
+        target_type="moderator",
+        target_id=str(user_id),
+        details={"target_username": user.username},
+        ip_address=get_client_ip(request)
+    )
+
+    logger.info(f"Password reset by {admin['username']} for user: {user.username}")
+
+    return {"ok": True}
+
+
+@router.post("/api/users/{user_id}/deactivate")
+async def deactivate_user(
+        user_id: int,
+        request: Request,
+        admin: dict = Depends(require_admin),
+):
+    if user_id == admin["id"]:
+        return JSONResponse(
+            {"ok": False, "error": "Нельзя деактивировать самого себя"},
+            status_code=400
+        )
+
+    check_query = moderators.select().where(moderators.c.id == user_id)
+    user = await database.fetch_one(check_query)
+
+    if not user:
+        return JSONResponse(
+            {"ok": False, "error": "Пользователь не найден"},
+            status_code=404
+        )
+
+    update_query = moderators.update().where(
+        moderators.c.id == user_id
+    ).values(is_active=False)
+
+    await database.execute(update_query)
+
+    await log_action(
+        moderator_id=admin["id"],
+        action="deactivate_moderator",
+        target_type="moderator",
+        target_id=str(user_id),
+        details={"target_username": user.username},
+        ip_address=get_client_ip(request)
+    )
+
+    logger.info(f"User deactivated by {admin['username']}: {user.username}")
+
+    return {"ok": True}
+
+
+@router.post("/api/users/{user_id}/activate")
+async def activate_user(
+        user_id: int,
+        request: Request,
+        admin: dict = Depends(require_admin),
+):
+    update_query = moderators.update().where(
+        moderators.c.id == user_id
+    ).values(is_active=True)
+
+    await database.execute(update_query)
+
+    await log_action(
+        moderator_id=admin["id"],
+        action="activate_moderator",
+        target_type="moderator",
+        target_id=str(user_id),
+        ip_address=get_client_ip(request)
+    )
+
+    return {"ok": True}
+
+
+@router.delete("/api/users/{user_id}")
+async def delete_user(
+        user_id: int,
+        request: Request,
+        admin: dict = Depends(require_admin),
+):
+    if user_id == admin["id"]:
+        return JSONResponse(
+            {"ok": False, "error": "Нельзя удалить самого себя"},
+            status_code=400
+        )
+
+    check_query = moderators.select().where(moderators.c.id == user_id)
+    user = await database.fetch_one(check_query)
+
+    if not user:
+        return JSONResponse(
+            {"ok": False, "error": "Пользователь не найден"},
+            status_code=404
+        )
+
+    delete_query = moderators.delete().where(moderators.c.id == user_id)
+    await database.execute(delete_query)
+
+    await log_action(
+        moderator_id=admin["id"],
+        action="delete_moderator",
+        target_type="moderator",
+        target_id=str(user_id),
+        details={"target_username": user.username},
+        ip_address=get_client_ip(request)
+    )
+
+    logger.info(f"User deleted by {admin['username']}: {user.username}")
+
+    return {"ok": True}
