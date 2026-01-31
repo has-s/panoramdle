@@ -58,7 +58,7 @@ fi
 
 echo -e "${YELLOW}[5/11] Applying database migrations...${NC}"
 if [ -f "./scripts/db_migrate.sh" ]; then
-    ./scripts/migrate.sh
+    ./scripts/db_migrate.sh
     echo -e "${GREEN}✓ Migrations applied${NC}"
 else
     echo -e "${YELLOW}No migrations script, skipping${NC}"
