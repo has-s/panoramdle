@@ -34,7 +34,7 @@ if ! docker ps | grep -q "$CONTAINER_NAME"; then
 fi
 
 echo "Creating backup..."
-docker exec -t "$CONTAINER_NAME" \
+docker exec "$CONTAINER_NAME" \
   pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > "$FILE"
 
 FILE_SIZE=$(stat -f%z "$FILE" 2>/dev/null || stat -c%s "$FILE" 2>/dev/null)
@@ -43,14 +43,60 @@ if [ "$FILE_SIZE" -lt 100 ]; then
   exit 1
 fi
 
-echo "✓ Backup saved to $FILE"
+echo "✓ Backup saved: $FILE"
 echo "  Size: $(du -h "$FILE" | cut -f1)"
 
-BACKUP_COUNT=$(ls -1 "$BACKUP_DIR"/newsdb_*.sql 2>/dev/null | wc -l)
-if [ "$BACKUP_COUNT" -gt 5 ]; then
-  echo ""
-  echo "Cleaning up old backups (keeping last 5)..."
-  BACKUPS_TO_DELETE=$((BACKUP_COUNT - 5))
-  ls -1t "$BACKUP_DIR"/newsdb_*.sql | tail -n +6 | xargs rm -f
-  echo "✓ Removed $BACKUPS_TO_DELETE old backup(s)"
+echo ""
+echo "Cleaning up old backups..."
+
+CURRENT_TIME=$(date +%s)
+THIRTY_DAYS_AGO=$((CURRENT_TIME - 30*24*60*60))
+
+RECENT_BACKUPS=()
+OLD_BACKUPS=()
+
+for backup in $(ls -1t "$BACKUP_DIR"/newsdb_*.sql 2>/dev/null); do
+  BACKUP_TIME=$(stat -f %m "$backup" 2>/dev/null || stat -c %Y "$backup" 2>/dev/null)
+
+  if [ "$BACKUP_TIME" -gt "$THIRTY_DAYS_AGO" ]; then
+    RECENT_BACKUPS+=("$backup")
+  else
+    OLD_BACKUPS+=("$backup")
+  fi
+done
+
+RECENT_COUNT=${#RECENT_BACKUPS[@]}
+OLD_COUNT=${#OLD_BACKUPS[@]}
+
+echo "  Recent backups (<30 days): $RECENT_COUNT"
+echo "  Old backups (>30 days): $OLD_COUNT"
+
+if [ $OLD_COUNT -gt 0 ]; then
+  if [ $RECENT_COUNT -eq 0 ]; then
+    echo "  All backups are old, keeping last 5"
+
+    if [ $OLD_COUNT -gt 5 ]; then
+      SORTED_OLD=($(printf '%s\n' "${OLD_BACKUPS[@]}" | sort -r))
+
+      for i in "${!SORTED_OLD[@]}"; do
+        if [ $i -ge 5 ]; then
+          rm -f "${SORTED_OLD[$i]}"
+          echo "  Deleted: $(basename "${SORTED_OLD[$i]}")"
+        fi
+      done
+      echo "✓ Removed $((OLD_COUNT - 5)) old backup(s)"
+    else
+      echo "✓ Keeping all $OLD_COUNT old backups (less than 5)"
+    fi
+  else
+    echo "  Deleting all old backups (recent backups exist)"
+
+    for backup in "${OLD_BACKUPS[@]}"; do
+      rm -f "$backup"
+      echo "  Deleted: $(basename "$backup")"
+    done
+    echo "✓ Removed $OLD_COUNT old backup(s)"
+  fi
+else
+  echo "✓ No old backups to clean"
 fi

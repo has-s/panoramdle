@@ -1,10 +1,9 @@
-# .github/workflows/deploy.yml
 name: Deploy to Server
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:  # Ручной запуск
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -25,65 +24,8 @@ jobs:
           cd ${{ secrets.PROJECT_PATH }}
           
           git pull origin main
-          
-          echo "Applying database migrations..."
-          ./scripts/migrate.sh
-          
-          echo "Checking for admin user..."
-          USE_ENV_VARS=true ./scripts/create_admin.sh || echo "Admin already exists or creation skipped"
-          
           chmod +x scripts/*.sh
           ./scripts/deploy.sh
-          
-          echo "✓ Deployment completed"
-          echo "Latest backup: $(ls -t backups/ | head -1)"
-
-    - name: Health check
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        port: ${{ secrets.SSH_PORT || 22 }}
-        script: |
-          cd ${{ secrets.PROJECT_PATH }}
-          
-          source .env.docker
-          BACKEND_PORT=${BACKEND_PORT:-8000}
-          
-          echo "Waiting for backend to be ready on port $BACKEND_PORT..."
-          for i in {1..12}; do
-          
-            CONTAINER_STATUS=$(docker inspect panoramdle_backend --format='{{.State.Status}}' 2>/dev/null || echo "not_found")
-            
-            if [ "$CONTAINER_STATUS" = "restarting" ]; then
-              echo "✗ Container is in restart loop! Aborting."
-              docker-compose logs --tail=100 backend
-              exit 1
-            fi
-            
-            if [ "$CONTAINER_STATUS" != "running" ]; then
-              echo "✗ Container status: $CONTAINER_STATUS"
-              docker-compose logs --tail=100 backend
-              exit 1
-            fi
-            
-            if curl -f http://localhost:$BACKEND_PORT/health > /dev/null 2>&1; then
-              echo "✓ Backend is healthy!"
-              break
-            fi
-            
-            echo "Attempt $i/12... (container: $CONTAINER_STATUS)"
-            sleep 5
-          done
-          
-          if ! curl -f http://localhost:$BACKEND_PORT/health; then
-            echo "✗ Health check failed!"
-            docker-compose logs --tail=50 backend
-            exit 1
-          fi
-          
-          echo "✓ Deployment successful!"
 
     - name: Notify on failure
       if: failure()
@@ -96,8 +38,10 @@ jobs:
         script: |
           cd ${{ secrets.PROJECT_PATH }}
           
-          echo "Deployment failed! Attempting rollback..."
-          ./scripts/rollback.sh || true
-          
-          # Show logs for debugging
-          docker-compose logs --tail=50 backend
+          echo "Deployment failed!"
+          echo ""
+          echo "=== Backend Logs ==="
+          docker-compose logs --tail=100 backend
+          echo ""
+          echo "To rollback manually: ./scripts/rollback.sh"
+          echo "To restore DB: make db-restore FILE=backups/[filename]"

@@ -39,24 +39,24 @@ if [ ! -d "$MIGRATIONS_DIR" ]; then
   exit 1
 fi
 
-echo -e "${GREEN}=== Применение миграций ===${NC}"
+echo -e "${GREEN}=== Applying Migrations ===${NC}"
 echo ""
 
 for migration in $(ls "$MIGRATIONS_DIR"/*.sql 2>/dev/null | sort); do
   MIGRATION_NAME=$(basename "$migration")
-  echo -e "${YELLOW}Применение миграции: $MIGRATION_NAME${NC}"
+  echo -e "${YELLOW}Applying: $MIGRATION_NAME${NC}"
 
   if docker exec -i "$CONTAINER_NAME" psql -U "$POSTGRES_USER" "$POSTGRES_DB" < "$migration"; then
-    echo -e "${GREEN}✓ $MIGRATION_NAME применена успешно${NC}"
+    echo -e "${GREEN}✓ $MIGRATION_NAME applied successfully${NC}"
   else
-    echo -e "${RED}✗ Ошибка при применении $MIGRATION_NAME${NC}"
+    echo -e "${RED}✗ Error applying $MIGRATION_NAME${NC}"
     exit 1
   fi
   echo ""
 done
 
-echo -e "${GREEN}=== Все миграции применены ===${NC}"
+echo -e "${GREEN}=== All migrations applied ===${NC}"
 echo ""
 
-echo "Список таблиц в базе данных:"
+echo "Database tables:"
 docker exec -i "$CONTAINER_NAME" psql -U "$POSTGRES_USER" "$POSTGRES_DB" -c "\dt"

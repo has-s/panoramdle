@@ -21,126 +21,155 @@ NC='\033[0m'
 echo -e "${GREEN}=== Starting Deployment ===${NC}"
 echo ""
 
-echo -e "${YELLOW}[1/11] Checking current state...${NC}"
-if ! docker-compose ps | grep -q "Up"; then
-    echo -e "${YELLOW}Services are not running. Starting them...${NC}"
-    docker-compose up -d
-    sleep 10
-    echo -e "${GREEN}✓ Services started${NC}"
-fi
-
-echo -e "${YELLOW}[2/11] Creating database backup...${NC}"
+echo -e "${YELLOW}[1/10] Creating database backup...${NC}"
 if [ -f "./scripts/db_backup.sh" ]; then
     ./scripts/db_backup.sh
     if [ $? -ne 0 ]; then
-        echo -e "${RED}✗ Backup failed! Aborting deployment.${NC}"
+        echo -e "${RED}✗ Backup failed! Aborting.${NC}"
         exit 1
     fi
     echo -e "${GREEN}✓ Backup completed${NC}"
 else
-    echo -e "${RED}✗ Backup script not found! Aborting.${NC}"
+    echo -e "${RED}✗ db_backup.sh not found! Aborting.${NC}"
     exit 1
 fi
 
-echo -e "${YELLOW}[3/11] Saving current version...${NC}"
-CURRENT_VERSION=$(docker-compose images -q backend)
-echo "$CURRENT_VERSION" > .deploy_previous_version
-echo "Previous version: $CURRENT_VERSION"
-
-if [ -d .git ]; then
-    echo -e "${YELLOW}[4/11] Pulling latest changes...${NC}"
-    git fetch origin main
-    git reset --hard origin/main
-    echo -e "${GREEN}✓ Updated from GitHub${NC}"
+echo -e "${YELLOW}[2/10] Saving current backend version...${NC}"
+if docker ps --format '{{.Names}}' | grep -q "panoramdle_backend"; then
+    CURRENT_IMAGE=$(docker inspect panoramdle_backend --format='{{.Image}}' 2>/dev/null || echo "")
+    if [ -n "$CURRENT_IMAGE" ]; then
+        echo "$CURRENT_IMAGE" > .deploy_previous_version
+        echo "Saved: $CURRENT_IMAGE"
+    else
+        echo "Could not save current version"
+    fi
 else
-    echo -e "${YELLOW}[4/11] Skipping Git pull (not a repository)${NC}"
+    echo "Backend not running (first deployment)"
 fi
 
-echo -e "${YELLOW}[5/11] Applying database migrations...${NC}"
+echo -e "${YELLOW}[3/10] Applying database migrations...${NC}"
 if [ -f "./scripts/db_migrate.sh" ]; then
     ./scripts/db_migrate.sh
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}✗ Migrations failed! Aborting.${NC}"
+        exit 1
+    fi
     echo -e "${GREEN}✓ Migrations applied${NC}"
 else
-    echo -e "${YELLOW}No migrations script, skipping${NC}"
+    echo -e "${YELLOW}db_migrate.sh not found, skipping${NC}"
 fi
 
-echo -e "${YELLOW}[6/11] Checking for admin user...${NC}"
+echo -e "${YELLOW}[4/10] Checking for admin user...${NC}"
 if [ -f "./scripts/create_admin.sh" ]; then
-    USE_ENV_VARS=true ./scripts/create_admin.sh || echo "Admin exists or creation skipped"
+    USE_ENV_VARS=true ./scripts/create_admin.sh 2>&1 | grep -q "успешно создан" && \
+        echo -e "${GREEN}✓ Admin created${NC}" || \
+        echo "Admin already exists, skipping"
 else
-    echo -e "${YELLOW}No create_admin script, skipping${NC}"
+    echo -e "${YELLOW}create_admin.sh not found, skipping${NC}"
 fi
 
-echo -e "${YELLOW}[7/11] Building new images...${NC}"
-docker-compose build --no-cache backend
+echo -e "${YELLOW}[5/10] Building new backend image...${NC}"
+docker-compose build backend
+if [ $? -ne 0 ]; then
+    echo -e "${RED}✗ Build failed! Aborting.${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ Image built${NC}"
 
 if command -v nginx &> /dev/null; then
-    echo -e "${YELLOW}[8/11] Testing Nginx configuration...${NC}"
-    if ! sudo nginx -t > /dev/null 2>&1; then
-        echo -e "${RED}✗ Nginx test failed!${NC}"
+    echo -e "${YELLOW}[6/10] Testing Nginx configuration...${NC}"
+    if sudo nginx -t > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Nginx OK${NC}"
+    else
+        echo -e "${RED}✗ Nginx config invalid! Aborting.${NC}"
         exit 1
     fi
 else
-    echo -e "${YELLOW}[8/11] Skipping Nginx test (not installed)${NC}"
+    echo -e "${YELLOW}[6/10] Nginx not installed, skipping${NC}"
 fi
 
-echo -e "${YELLOW}[9/11] Deploying new version...${NC}"
-docker-compose stop backend
-docker-compose rm -f backend
+echo -e "${YELLOW}[7/10] Stopping old backend...${NC}"
+if docker ps --format '{{.Names}}' | grep -q "panoramdle_backend"; then
+    docker-compose stop backend
+    docker-compose rm -f backend
+    echo -e "${GREEN}✓ Old backend stopped${NC}"
+else
+    echo "No backend running"
+fi
+
+echo -e "${YELLOW}[8/10] Starting new backend...${NC}"
 docker-compose up -d backend
+echo "Waiting for startup..."
+sleep 10
 
-echo "Waiting for backend..."
-sleep 5
-
-echo -e "${YELLOW}[10/11] Health check on port $BACKEND_PORT...${NC}"
-MAX_RETRIES=20
+echo -e "${YELLOW}[9/10] Health check...${NC}"
+MAX_RETRIES=24
 RETRY_COUNT=0
+HEALTH_OK=false
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     CONTAINER_STATUS=$(docker inspect panoramdle_backend --format='{{.State.Status}}' 2>/dev/null || echo "not_found")
 
-    if [ "$CONTAINER_STATUS" = "restarting" ]; then
-        echo -e "${RED}✗ Container in restart loop!${NC}"
-        docker-compose logs --tail=100 backend
-        exit 1
-    fi
-
-    if [ "$CONTAINER_STATUS" != "running" ]; then
-        echo -e "${RED}✗ Container status: $CONTAINER_STATUS${NC}"
-        docker-compose logs --tail=100 backend
-        exit 1
-    fi
-
-    if curl -f http://localhost:$BACKEND_PORT/health > /dev/null 2>&1; then
-        echo -e "${GREEN}✓ Health check passed!${NC}"
-        break
-    fi
+    case "$CONTAINER_STATUS" in
+        "not_found")
+            echo -e "${RED}✗ Container not found!${NC}"
+            break
+            ;;
+        "restarting")
+            echo -e "${RED}✗ Container in restart loop!${NC}"
+            docker-compose logs --tail=50 backend
+            break
+            ;;
+        "exited")
+            echo -e "${RED}✗ Container exited!${NC}"
+            docker-compose logs --tail=50 backend
+            break
+            ;;
+        "running")
+            if curl -f http://localhost:$BACKEND_PORT/health > /dev/null 2>&1; then
+                echo -e "${GREEN}✓ Health check passed!${NC}"
+                HEALTH_OK=true
+                break
+            fi
+            ;;
+    esac
 
     RETRY_COUNT=$((RETRY_COUNT + 1))
-    echo "Attempt $RETRY_COUNT/$MAX_RETRIES (container: $CONTAINER_STATUS)..."
+    echo "Attempt $RETRY_COUNT/$MAX_RETRIES (status: $CONTAINER_STATUS)"
     sleep 5
 done
 
-if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-    echo -e "${RED}✗ Health check failed! Rolling back...${NC}"
+if [ "$HEALTH_OK" != "true" ]; then
     echo ""
-    echo "=== Backend logs ==="
-    docker-compose logs --tail=30 backend
+    echo -e "${RED}✗✗✗ DEPLOYMENT FAILED ✗✗✗${NC}"
+    echo ""
+    echo "=== Backend Logs ==="
+    docker-compose logs --tail=100 backend
     echo ""
 
     if [ -f .deploy_previous_version ]; then
-        PREVIOUS_VERSION=$(cat .deploy_previous_version)
-        docker tag $PREVIOUS_VERSION panoramdle_backend:latest
-        docker-compose up -d --no-deps backend
-        echo -e "${YELLOW}Rolled back to previous version${NC}"
+        echo -e "${YELLOW}Attempting rollback...${NC}"
+        PREVIOUS_IMAGE=$(cat .deploy_previous_version)
+
+        docker-compose stop backend
+        docker-compose rm -f backend
+        docker tag "$PREVIOUS_IMAGE" panoramdle-backend:latest
+        docker-compose up -d backend
+
+        echo -e "${YELLOW}✓ Rolled back to previous version${NC}"
+        echo ""
+        echo "To restore database backup:"
+        echo "  Latest: $(ls -t backups/ | head -1)"
+        echo "  Command: make db-restore FILE=backups/[filename]"
     fi
 
     exit 1
 fi
 
-echo -e "${YELLOW}[11/11] Cleaning up...${NC}"
-docker system prune -f
+echo -e "${YELLOW}[10/10] Cleanup...${NC}"
+docker system prune -f > /dev/null 2>&1
+echo -e "${GREEN}✓ Cleanup done${NC}"
 
 echo ""
-echo -e "${GREEN}=== Deployment Successful! ===${NC}"
-echo "Backup: $(ls -t backups/ | head -1)"
+echo -e "${GREEN}=== ✓ DEPLOYMENT SUCCESSFUL ✓ ===${NC}"
+echo "Latest backup: $(ls -t backups/ | head -1 2>/dev/null || echo 'none')"

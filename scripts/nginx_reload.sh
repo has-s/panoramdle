@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # scripts/nginx_reload.sh
-# Управление Nginx на хосте для panoramdle
 
 set -e
 

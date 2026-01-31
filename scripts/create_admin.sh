@@ -11,7 +11,7 @@ YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-echo -e "${GREEN}=== Создание администратора ===${NC}"
+echo -e "${GREEN}=== Creating Administrator ===${NC}"
 echo ""
 
 APP_ENV=${APP_ENV:-docker}
@@ -35,7 +35,6 @@ if ! docker ps | grep -q "$CONTAINER_NAME"; then
   exit 1
 fi
 
-
 USE_ENV_VARS=${USE_ENV_VARS:-false}
 
 if [ "$USE_ENV_VARS" = "true" ]; then
@@ -50,26 +49,26 @@ if [ "$USE_ENV_VARS" = "true" ]; then
     exit 1
   fi
 else
-  echo -e "${YELLOW}Введите данные администратора:${NC}"
+  echo -e "${YELLOW}Enter administrator credentials:${NC}"
   echo ""
 
   read -p "Username: " USERNAME
   if [ -z "$USERNAME" ]; then
-    echo -e "${RED}Username не может быть пустым${NC}"
+    echo -e "${RED}Username cannot be empty${NC}"
     exit 1
   fi
 
   read -s -p "Password: " PASSWORD
   echo ""
   if [ -z "$PASSWORD" ]; then
-    echo -e "${RED}Password не может быть пустым${NC}"
+    echo -e "${RED}Password cannot be empty${NC}"
     exit 1
   fi
 
-  read -s -p "Повторите password: " PASSWORD_CONFIRM
+  read -s -p "Repeat password: " PASSWORD_CONFIRM
   echo ""
   if [ "$PASSWORD" != "$PASSWORD_CONFIRM" ]; then
-    echo -e "${RED}Пароли не совпадают${NC}"
+    echo -e "${RED}Passwords do not match${NC}"
     exit 1
   fi
 
@@ -77,7 +76,17 @@ else
 fi
 
 echo ""
-echo -e "${YELLOW}Создание администратора...${NC}"
+echo -e "${YELLOW}Checking if admin already exists...${NC}"
+
+ADMIN_EXISTS=$(docker exec -i "$CONTAINER_NAME" psql -U "$POSTGRES_USER" "$POSTGRES_DB" -t -c \
+  "SELECT COUNT(*) FROM moderators WHERE username = '$USERNAME' AND role = 'admin';" 2>/dev/null | xargs || echo "0")
+
+if [ "$ADMIN_EXISTS" != "0" ]; then
+  echo -e "${YELLOW}Admin '$USERNAME' already exists, skipping creation${NC}"
+  exit 0
+fi
+
+echo -e "${YELLOW}Creating administrator...${NC}"
 
 PASSWORD_HASH=$(python3 << PYTHON_SCRIPT
 import bcrypt
@@ -89,41 +98,26 @@ PYTHON_SCRIPT
 )
 
 read -r -d '' SQL <<EOF || true
-DO \$\$
-DECLARE
-    moderator_count INTEGER;
-BEGIN
-    -- Проверяем есть ли уже модераторы с таким username
-    SELECT COUNT(*) INTO moderator_count FROM moderators WHERE username = '$USERNAME';
-
-    IF moderator_count > 0 THEN
-        RAISE EXCEPTION 'Пользователь с таким username уже существует';
-    END IF;
-
-    -- Создаем администратора
-    INSERT INTO moderators (username, password_hash, email, role, is_active)
-    VALUES ('$USERNAME', '$PASSWORD_HASH', $([ -n "$EMAIL" ] && echo "'$EMAIL'" || echo "NULL"), 'admin', true);
-
-    RAISE NOTICE 'Администратор успешно создан!';
-END \$\$;
+INSERT INTO moderators (username, password_hash, email, role, is_active)
+VALUES ('$USERNAME', '$PASSWORD_HASH', $([ -n "$EMAIL" ] && echo "'$EMAIL'" || echo "NULL"), 'admin', true);
 EOF
 
-if echo "$SQL" | docker exec -i "$CONTAINER_NAME" psql -U "$POSTGRES_USER" "$POSTGRES_DB" 2>&1 | grep -q "успешно создан"; then
+if echo "$SQL" | docker exec -i "$CONTAINER_NAME" psql -U "$POSTGRES_USER" "$POSTGRES_DB" > /dev/null 2>&1; then
     echo ""
-    echo -e "${GREEN}✓ Администратор успешно создан!${NC}"
+    echo -e "${GREEN}✓ Administrator created successfully!${NC}"
     echo ""
-    echo "Данные для входа:"
+    echo "Login credentials:"
     echo "  Username: $USERNAME"
-    echo "  Email: ${EMAIL:-<не указан>}"
+    echo "  Email: ${EMAIL:-<not specified>}"
     echo "  Role: admin"
     echo ""
 else
     echo ""
-    echo -e "${RED}✗ Ошибка при создании администратора${NC}"
+    echo -e "${RED}✗ Error creating administrator${NC}"
     echo ""
-    echo "Возможные причины:"
-    echo "  - Пользователь с таким username уже существует"
-    echo "  - Таблица moderators не создана (выполните миграцию)"
+    echo "Possible reasons:"
+    echo "  - User with this username already exists"
+    echo "  - Table 'moderators' not created (run migrations)"
     echo ""
     exit 1
 fi
