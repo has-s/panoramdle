@@ -26,3 +26,4 @@ docker-compose.override.yml
 .vscode/
 
 TODO.md
+/CODE_STYLE.md
