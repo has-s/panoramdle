@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# scripts/db_restore.sh
 
 set -e
 
@@ -55,7 +54,7 @@ if [ -z "$MODE" ]; then
   echo ""
   echo "Select restore mode:"
   echo "  [1] Overlay - add data (ignore duplicates)"
-  echo "  [2] Replace - full replace (delete all old data)"
+  echo "  [2] Replace - full replace (clear all data, restore from backup)"
   echo ""
   read -p "Enter mode (1/2): " MODE_INPUT
 
@@ -108,39 +107,35 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 echo ""
-echo "Step 1: Applying migrations..."
-if [ -f "$SCRIPT_DIR/db_migrate.sh" ]; then
-  "$SCRIPT_DIR/db_migrate.sh"
-  echo "✓ Migrations applied"
-else
-  echo "Warning: db_migrate.sh not found, skipping migrations"
-fi
-
-echo ""
-echo "Step 2: Restoring data..."
-
-TMP_FILE=$(mktemp)
+echo "Restoring database..."
 
 if [ "$MODE" = "replace" ]; then
-  echo "Mode: Full replace (TRUNCATE + INSERT)"
+  echo "Mode: Replace (TRUNCATE + restore)"
 
-  echo "Truncating tables..."
+  echo "Truncating all tables..."
+  docker exec -i "$CONTAINER_NAME" psql -U "$POSTGRES_USER" "$POSTGRES_DB" << 'SQL'
+TRUNCATE TABLE audit_log CASCADE;
+TRUNCATE TABLE sessions CASCADE;
+TRUNCATE TABLE moderators CASCADE;
+TRUNCATE TABLE news CASCADE;
+SQL
+
+  echo "Restoring data from backup..."
   docker exec -i "$CONTAINER_NAME" \
-    psql -U "$POSTGRES_USER" "$POSTGRES_DB" -c "TRUNCATE TABLE news CASCADE;"
-
-  cat "$BACKUP_FILE" > "$TMP_FILE"
+    psql -U "$POSTGRES_USER" "$POSTGRES_DB" < "$BACKUP_FILE"
 
 else
   echo "Mode: Overlay (ON CONFLICT DO NOTHING)"
 
-  sed -E 's/INSERT INTO news \(([^)]+)\) VALUES \(([^)]+)\);/INSERT INTO news (\1) VALUES (\2) ON CONFLICT (id) DO NOTHING;/' "$BACKUP_FILE" > "$TMP_FILE"
+  TMP_FILE=$(mktemp)
+
+  sed -E 's/^COPY ([^ ]+) /INSERT INTO \1 SELECT * FROM stdin ON CONFLICT DO NOTHING;\nCOPY \1 /' "$BACKUP_FILE" > "$TMP_FILE"
+
+  docker exec -i "$CONTAINER_NAME" \
+    psql -U "$POSTGRES_USER" "$POSTGRES_DB" < "$TMP_FILE"
+
+  rm "$TMP_FILE"
 fi
-
-echo "Restoring database..."
-docker exec -i "$CONTAINER_NAME" \
-  psql -U "$POSTGRES_USER" "$POSTGRES_DB" < "$TMP_FILE"
-
-rm "$TMP_FILE"
 
 COUNT=$(docker exec -i "$CONTAINER_NAME" \
   psql -U "$POSTGRES_USER" "$POSTGRES_DB" -t -c "SELECT COUNT(*) FROM news;")
