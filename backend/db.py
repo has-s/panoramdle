@@ -1,8 +1,7 @@
 import os
 from databases import Database
+from sqlalchemy import MetaData
 from dotenv import load_dotenv
-
-from backend.models import news
 
 SCRIPT_DIR = os.path.dirname(__file__)
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
@@ -18,6 +17,6 @@ host = os.getenv("POSTGRES_HOST") or ("db" if APP_ENV == "docker" else "localhos
 
 DATABASE_URL = f"postgresql://{user}:{password}@{host}:5432/{db_name}"
 database = Database(DATABASE_URL)
+metadata = MetaData()
 
-# Экспортируем news из models
-__all__ = ["database", "news"]
+__all__ = ["database", "metadata"]

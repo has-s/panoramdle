@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>News Daily</title>
+    <title>Panoramdle - Daily Challenge</title>
     <style>
         :root {
             --color-bg: #fffcf2;
@@ -22,10 +22,118 @@
             padding: 20px;
         }
 
+        .welcome-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .welcome-modal {
+            background: var(--color-bg);
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 500px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .welcome-modal h1 {
+            color: var(--color-text);
+            margin: 0 0 20px 0;
+            font-size: 36px;
+        }
+
+        .welcome-modal p {
+            color: var(--color-text-sub);
+            font-size: 18px;
+            line-height: 1.6;
+            margin: 0 0 30px 0;
+        }
+
+        .welcome-rules {
+            background: var(--color-bg-sub);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 0 0 30px 0;
+            text-align: left;
+        }
+
+        .welcome-rules h3 {
+            color: var(--color-text);
+            margin: 0 0 15px 0;
+            font-size: 20px;
+        }
+
+        .welcome-rules ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .welcome-rules li {
+            color: var(--color-text-sub);
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        .start-button {
+            background: var(--color-contrast);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .start-button:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        .hidden {
+            display: none;
+        }
+
         #daily-container {
             max-width: 700px;
             margin: 0 auto;
             text-align: center;
+        }
+
+        .moderator-panel {
+            background: var(--color-text-sub);
+            color: var(--color-bg);
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .copy-button {
+            background: var(--color-contrast);
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+
+        .copy-button:hover {
+            opacity: 0.8;
         }
 
         .progress {
@@ -157,7 +265,27 @@
     </style>
 </head>
 <body>
-<div id="daily-container">
+
+<div id="welcomeOverlay" class="welcome-overlay">
+    <div class="welcome-modal">
+        <h1>Panoramdle</h1>
+        <p>Сможете отличить реальные новости от фейковых?</p>
+
+        <div class="welcome-rules">
+            <h3>Правила:</h3>
+            <ul>
+                <li>10 новостей на сегодня</li>
+                <li>Отметьте какие реальные, а какие фейковые</li>
+                <li>Узнайте результат в конце</li>
+                <li>Один шанс в день!</li>
+            </ul>
+        </div>
+
+        <button class="start-button" onclick="startChallenge()">Начать</button>
+    </div>
+</div>
+
+<div id="daily-container" class="hidden">
     <div class="loading">
         <p>Загрузка квиза...</p>
     </div>
@@ -167,8 +295,69 @@
 let dailyData = [];
 let currentIndex = 0;
 let results = [];
+let challengeDate = '';
+let isModerator = false;
 
 const containerEl = document.getElementById("daily-container");
+const welcomeEl = document.getElementById("welcomeOverlay");
+
+async function checkAuth() {
+    try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+            isModerator = true;
+        }
+    } catch (error) {
+        isModerator = false;
+    }
+}
+
+function copyNewsId(newsId) {
+    navigator.clipboard.writeText(newsId).then(() => {
+        const btn = event.target;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '✓ Скопировано';
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+        }, 1500);
+    }).catch(err => {
+        alert('Ошибка копирования: ' + err);
+    });
+}
+
+function getTodayDate() {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+}
+
+function hasCompletedToday() {
+    const today = getTodayDate();
+    return document.cookie.includes(`challenge_${today}=completed`);
+}
+
+function setChallengeCompleted() {
+    const today = getTodayDate();
+    const expires = new Date();
+    expires.setHours(23, 59, 59, 999);
+    document.cookie = `challenge_${today}=completed; expires=${expires.toUTCString()}; path=/`;
+}
+
+function startChallenge() {
+    if (hasCompletedToday()) {
+        welcomeEl.innerHTML = `
+            <div class="welcome-modal">
+                <h1>Panoramdle</h1>
+                <p>Вы уже прошли сегодняшний челлендж!</p>
+                <p style="color: var(--color-text-sub);">Возвращайтесь завтра за новыми новостями.</p>
+            </div>
+        `;
+        return;
+    }
+
+    welcomeEl.classList.add('hidden');
+    containerEl.classList.remove('hidden');
+    loadChallenge();
+}
 
 function setupButtons() {
     const trueBtn = document.getElementById("true-btn");
@@ -180,13 +369,16 @@ function setupButtons() {
     }
 }
 
-async function startDaily() {
+async function loadChallenge() {
     try {
         const response = await fetch("/api/daily");
         if (!response.ok) {
             throw new Error("Ошибка загрузки квиза");
         }
-        dailyData = await response.json();
+
+        const data = await response.json();
+        dailyData = data.news || [];
+        challengeDate = data.challenge_date;
 
         if (dailyData.length === 0) {
             containerEl.innerHTML = `
@@ -206,10 +398,8 @@ async function startDaily() {
             <div class="results">
                 <h2>Ошибка загрузки</h2>
                 <p>${error.message}</p>
-                <button id="restart-btn">Попробовать снова</button>
             </div>
         `;
-        document.getElementById("restart-btn").addEventListener("click", startDaily);
     }
 }
 
@@ -217,7 +407,6 @@ function showQuestion() {
     const news = dailyData[currentIndex];
     const progress = `Вопрос ${currentIndex + 1} из ${dailyData.length}`;
 
-    // Форматирование даты
     let dateStr = "";
     if (news.published_date) {
         const date = new Date(news.published_date);
@@ -227,6 +416,14 @@ function showQuestion() {
     containerEl.innerHTML = `
         <div class="progress">${progress}</div>
         <div class="news-card">
+            ${isModerator ? `
+                <div class="moderator-panel">
+                    <span>ID: ${news.id}</span>
+                    <button class="copy-button" onclick="copyNewsId('${news.id}')">
+                        📋 Копировать
+                    </button>
+                </div>
+            ` : ''}
             <h2>${news.headline}</h2>
             ${news.media_url ? `<img id="media" class="visible" src="${news.media_url}" alt="Изображение новости">` : '<img id="media" src="" alt="">'}
             ${news.text ? `<p id="text">${news.text}</p>` : ''}
@@ -265,7 +462,7 @@ function answer(isReal) {
     }
 }
 
-function showResults() {
+async function showResults() {
     const score = results.filter(Boolean).length;
     const total = results.length;
     const percentage = Math.round((score / total) * 100);
@@ -283,22 +480,69 @@ function showResults() {
         message = "Попробуйте ещё раз!";
     }
 
-    containerEl.innerHTML = `
-        <div class="results">
-            <h2>Викторина завершена!</h2>
-            <div class="score">${score} / ${total}</div>
-            <p style="font-size: 24px;">${message}</p>
-            <p style="font-size: 18px; color: var(--color-text-sub);">
-                Правильных ответов: ${percentage}%
-            </p>
-            <button id="restart-btn">Сыграть ещё раз</button>
-        </div>
-    `;
+    setChallengeCompleted();
 
-    document.getElementById("restart-btn").addEventListener("click", startDaily);
+    try {
+        const formData = new FormData();
+        formData.append('challenge_date', challengeDate);
+        formData.append('correct_count', score);
+
+        const response = await fetch('/api/daily/submit', {
+            method: 'POST',
+            body: formData
+        });
+
+        const stats = await response.json();
+
+        containerEl.innerHTML = `
+            <div class="results">
+                <h2>Челлендж завершён!</h2>
+                <div class="score">${score} / ${total}</div>
+                <p style="font-size: 24px;">${message}</p>
+                <p style="font-size: 18px; color: var(--color-text-sub);">
+                    Правильных ответов: ${percentage}%
+                </p>
+                ${stats.total_attempts > 1 ? `
+                    <p style="font-size: 16px; color: var(--color-text-sub); margin-top: 20px;">
+                        Средний результат сегодня: ${stats.average_correct}/10 (${stats.average_percentage}%)<br>
+                        Всего прошли: ${stats.total_attempts}
+                    </p>
+                ` : ''}
+                <p style="margin-top: 30px; color: var(--color-text-sub);">
+                    Возвращайтесь завтра за новым челленджем!
+                </p>
+            </div>
+        `;
+    } catch (error) {
+        containerEl.innerHTML = `
+            <div class="results">
+                <h2>Челлендж завершён!</h2>
+                <div class="score">${score} / ${total}</div>
+                <p style="font-size: 24px;">${message}</p>
+                <p style="font-size: 18px; color: var(--color-text-sub);">
+                    Правильных ответов: ${percentage}%
+                </p>
+                <p style="margin-top: 30px; color: var(--color-text-sub);">
+                    Возвращайтесь завтра за новым челленджем!
+                </p>
+            </div>
+        `;
+    }
 }
 
-window.onload = startDaily;
+window.onload = async function() {
+    await checkAuth();
+
+    if (hasCompletedToday()) {
+        welcomeEl.innerHTML = `
+            <div class="welcome-modal">
+                <h1>Panoramdle</h1>
+                <p>Вы уже прошли сегодняшний челлендж!</p>
+                <p style="color: var(--color-text-sub);">Возвращайтесь завтра за новыми новостями.</p>
+            </div>
+        `;
+    }
+};
 </script>
 </body>
 </html>
