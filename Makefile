@@ -70,7 +70,7 @@ db-restore: ## Restore database from backup (interactive)
 	@./scripts/db_restore.sh
 
 db-shell: ## Open psql shell in database
-	@docker-compose exec panoramdle_db sh -c 'psql -U $$POSTGRES_USER $$POSTGRES_DB'
+	@docker exec -it panoramdle_db sh -c 'psql -U $$POSTGRES_USER $$POSTGRES_DB'
 
 ##@ User Management
 

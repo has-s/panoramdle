@@ -209,6 +209,11 @@
             color: white;
         }
 
+        #continue-btn {
+            background-color: var(--color-text-sub);
+            color: white;
+        }
+
         button:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
@@ -261,6 +266,13 @@
             text-align: center;
             padding: 40px;
             font-size: 20px;
+        }
+
+        .stats-box {
+            background: var(--color-bg-sub);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
         }
     </style>
 </head>
@@ -342,6 +354,59 @@ function setChallengeCompleted() {
     document.cookie = `challenge_${today}=completed; expires=${expires.toUTCString()}; path=/`;
 }
 
+function saveProgress() {
+    const today = getTodayDate();
+    const progress = {
+        index: currentIndex,
+        results: results,
+        date: challengeDate
+    };
+    const expires = new Date();
+    expires.setHours(23, 59, 59, 999);
+    document.cookie = `challenge_progress_${today}=${encodeURIComponent(JSON.stringify(progress))}; expires=${expires.toUTCString()}; path=/`;
+}
+
+function loadProgress() {
+    const today = getTodayDate();
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === `challenge_progress_${today}`) {
+            try {
+                return JSON.parse(decodeURIComponent(value));
+            } catch (e) {
+                return null;
+            }
+        }
+    }
+    return null;
+}
+
+function clearProgress() {
+    const today = getTodayDate();
+    document.cookie = `challenge_progress_${today}=; path=/; max-age=0`;
+}
+
+async function loadTodayStats() {
+    try {
+        const today = getTodayDate();
+        const response = await fetch(`/api/daily/stats?date=${today}`);
+        if (response.ok) {
+            const stats = await response.json();
+            return stats;
+        }
+    } catch (error) {
+        console.error('Failed to load stats:', error);
+    }
+    return null;
+}
+
+function getPeopleWord(count) {
+    if (count % 10 === 1 && count % 100 !== 11) return 'человек';
+    if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) return 'человека';
+    return 'человек';
+}
+
 function startChallenge() {
     if (hasCompletedToday()) {
         welcomeEl.innerHTML = `
@@ -390,8 +455,16 @@ async function loadChallenge() {
             return;
         }
 
-        currentIndex = 0;
-        results = [];
+        const savedProgress = loadProgress();
+        if (savedProgress && savedProgress.date === challengeDate) {
+            currentIndex = savedProgress.index;
+            results = savedProgress.results;
+            console.log('Восстановлен прогресс:', currentIndex, 'вопрос');
+        } else {
+            currentIndex = 0;
+            results = [];
+        }
+
         showQuestion();
     } catch (error) {
         containerEl.innerHTML = `
@@ -427,7 +500,7 @@ function showQuestion() {
             <h2>${news.headline}</h2>
             ${news.media_url ? `<img id="media" class="visible" src="${news.media_url}" alt="Изображение новости">` : '<img id="media" src="" alt="">'}
             ${news.text ? `<p id="text">${news.text}</p>` : ''}
-            <div class="news-meta">
+            <div class="news-meta" id="news-meta" style="display: none;">
                 <span>Источник: ${news.source_name || 'Неизвестно'}</span>
                 ${dateStr ? `<span>Дата: ${dateStr}</span>` : ''}
             </div>
@@ -451,14 +524,30 @@ function answer(isReal) {
     resultEl.innerText = correct ? "✓ Верно!" : "✗ Неверно!";
     resultEl.className = correct ? "correct" : "incorrect";
 
-    document.getElementById("true-btn").disabled = true;
-    document.getElementById("false-btn").disabled = true;
+    const metaEl = document.getElementById("news-meta");
+    if (metaEl) {
+        metaEl.style.display = "flex";
+    }
+
+    document.getElementById("true-btn").style.display = "none";
+    document.getElementById("false-btn").style.display = "none";
+
+    const buttonsDiv = document.querySelector('.buttons');
+    const continueBtn = document.createElement('button');
+    continueBtn.id = 'continue-btn';
+    continueBtn.textContent = currentIndex + 1 < dailyData.length ? 'Продолжить' : 'Завершить';
+    continueBtn.onclick = continueToNext;
+    buttonsDiv.appendChild(continueBtn);
 
     currentIndex++;
+    saveProgress();
+}
+
+function continueToNext() {
     if (currentIndex < dailyData.length) {
-        setTimeout(showQuestion, 1500);
+        showQuestion();
     } else {
-        setTimeout(showResults, 1500);
+        showResults();
     }
 }
 
@@ -481,6 +570,27 @@ async function showResults() {
     }
 
     setChallengeCompleted();
+    clearProgress();
+
+    if (isModerator) {
+        containerEl.innerHTML = `
+            <div class="results">
+                <h2>Челлендж завершён!</h2>
+                <div class="score">${score} / ${total}</div>
+                <p style="font-size: 24px;">${message}</p>
+                <p style="font-size: 18px; color: var(--color-text-sub);">
+                    Правильных ответов: ${percentage}%
+                </p>
+                <p style="margin-top: 30px; color: var(--color-text-sub); font-size: 14px;">
+                    (Результаты модераторов не учитываются в статистике)
+                </p>
+                <p style="margin-top: 15px; color: var(--color-text-sub);">
+                    Возвращайтесь завтра за новым челленджем!
+                </p>
+            </div>
+        `;
+        return;
+    }
 
     try {
         const formData = new FormData();
@@ -503,10 +613,12 @@ async function showResults() {
                     Правильных ответов: ${percentage}%
                 </p>
                 ${stats.total_attempts > 1 ? `
-                    <p style="font-size: 16px; color: var(--color-text-sub); margin-top: 20px;">
-                        Средний результат сегодня: ${stats.average_correct}/10 (${stats.average_percentage}%)<br>
-                        Всего прошли: ${stats.total_attempts}
-                    </p>
+                    <div class="stats-box">
+                        <p style="font-size: 16px; color: var(--color-text-sub); margin: 0;">
+                            Средний результат сегодня: ${stats.average_correct}/10 (${stats.average_percentage}%)<br>
+                            Всего прошли: ${stats.total_attempts} ${getPeopleWord(stats.total_attempts)}
+                        </p>
+                    </div>
                 ` : ''}
                 <p style="margin-top: 30px; color: var(--color-text-sub);">
                     Возвращайтесь завтра за новым челленджем!
@@ -533,14 +645,42 @@ async function showResults() {
 window.onload = async function() {
     await checkAuth();
 
+    const stats = await loadTodayStats();
+
     if (hasCompletedToday()) {
+        let statsHtml = '';
+        if (stats && stats.total_attempts > 0) {
+            statsHtml = `
+                <div class="stats-box">
+                    <p style="font-size: 16px; color: var(--color-text-sub); margin: 0;">
+                        Сегодня прошли: ${stats.total_attempts} ${getPeopleWord(stats.total_attempts)}<br>
+                        Средний результат: ${stats.average_correct}/10 (${stats.average_percentage}%)
+                    </p>
+                </div>
+            `;
+        }
+
         welcomeEl.innerHTML = `
             <div class="welcome-modal">
                 <h1>Panoramdle</h1>
                 <p>Вы уже прошли сегодняшний челлендж!</p>
-                <p style="color: var(--color-text-sub);">Возвращайтесь завтра за новыми новостями.</p>
+                ${statsHtml}
+                <p style="color: var(--color-text-sub); margin-top: ${statsHtml ? '20px' : '0'};">
+                    Возвращайтесь завтра за новыми новостями.
+                </p>
             </div>
         `;
+    } else if (stats && stats.total_attempts > 0) {
+        const rulesDiv = document.querySelector('.welcome-rules');
+        const statsBox = document.createElement('div');
+        statsBox.className = 'stats-box';
+        statsBox.innerHTML = `
+            <p style="font-size: 14px; color: var(--color-text-sub); margin: 0;">
+                Сегодня прошли: ${stats.total_attempts} ${getPeopleWord(stats.total_attempts)}<br>
+                Средний результат: ${stats.average_correct}/10 (${stats.average_percentage}%)
+            </p>
+        `;
+        rulesDiv.parentNode.insertBefore(statsBox, rulesDiv.nextSibling);
     }
 };
 </script>
