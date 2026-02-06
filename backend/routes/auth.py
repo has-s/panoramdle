@@ -95,12 +95,14 @@ async def get_me(request: Request):
     moderator = await get_current_moderator(request)
 
     if not moderator:
-        return JSONResponse({"authenticated": False}, status_code=401)
+        return {"authenticated": False}
 
     return {
         "authenticated": True,
-        "id": moderator["id"],
-        "username": moderator["username"],
-        "email": moderator["email"],
-        "role": moderator["role"]
+        "moderator": {
+            "id": moderator["id"],
+            "username": moderator["username"],
+            "email": moderator["email"],
+            "role": moderator["role"]
+        }
     }

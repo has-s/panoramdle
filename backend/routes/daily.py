@@ -110,19 +110,20 @@ async def submit_challenge_result(challenge_date: str = Form(...), correct_count
             raise HTTPException(status_code=404, detail="Challenge not found")
 
         row = dict(result)
-        total = row["total_attempts"]
-        correct = row["total_correct"]
-        avg = correct / total
+        total = row.get("total_attempts", 0)
+        correct = row.get("total_correct", 0)
+        avg = correct / total if total > 0 else 0
 
         return {
             "success": True,
             "your_result": correct_count,
             "total_attempts": total,
+            "total_correct": correct,
             "average_correct": round(avg, 1),
             "average_percentage": round((avg / 10) * 100, 1)
         }
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Submit error: {e}")
+        logger.error(f"Submit error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to submit result")

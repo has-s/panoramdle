@@ -1,4 +1,20 @@
 services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: panoramdle_frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    networks:
+      - panoramdle-network
+
   backend:
     build: .
     container_name: panoramdle_backend
