@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { dailyApi, authApi } from '@/services/api';
+import './DailyChallenge.css';
 import {
   hasCompletedToday,
   setChallengeCompleted,
@@ -216,19 +217,23 @@ export const DailyChallenge = () => {
   // Welcome screen (before start)
   if (showWelcome) {
     return (
-      <div>
-        <h1>Panoramdle</h1>
-        <p>Сможете отличить реальные новости от фейковых?</p>
-        <div>
-          <h3>Правила:</h3>
-          <ul>
-            <li>10 новостей на сегодня</li>
-            <li>Отметьте какие реальные, а какие фейковые</li>
-            <li>Узнайте результат в конце</li>
-            <li>Один шанс в день!</li>
-          </ul>
+      <div className="welcome-card">
+        <div className="welcome-card__banner">
+          <span className="welcome-card__banner-text welcome-card__banner-text--main">BETA</span>
+          <span className="welcome-card__banner-text welcome-card__banner-text--alt">NEW</span>
         </div>
-        <button onClick={startChallenge}>Начать</button>
+        <h1 className="welcome-card__title">Panoramdle</h1>
+        <p className="welcome-card__subtitle">Сможете отличить реальные новости от фейковых?</p>
+        <ul className="welcome-card__rules">
+          <li>10 новостей на сегодня</li>
+          <li>Отметьте какие реальные, а какие фейковые</li>
+          <li>Узнайте результат в конце</li>
+          <li>Один шанс в день!</li>
+        </ul>
+        <button className="welcome-card__button" onClick={startChallenge}>
+          Начать
+        </button>
+        <div className="welcome-card__badge">DAILY</div>
       </div>
     );
   }
@@ -319,45 +324,87 @@ export const DailyChallenge = () => {
   }
 
   return (
-    <div>
-      <div>Вопрос {currentIndex + 1} из {dailyData.length}</div>
-
-      <div>
-        {isModerator && (
-          <div>
-            <span>ID: {currentNews.id}</span>
-            <button onClick={() => copyNewsId(currentNews.id)}>📋 Копировать</button>
-          </div>
-        )}
-
-        <h2>{currentNews.headline}</h2>
-
-        {currentNews.media_url && <img src={currentNews.media_url} alt="Изображение новости" />}
-
-        {currentNews.text && <p>{currentNews.text}</p>}
-
-        {answered && (
-          <div>
-            <span>Источник: {currentNews.source_name || 'Неизвестно'}</span>
-            {currentNews.published_date && (
-              <span> | Дата: {new Date(currentNews.published_date).toLocaleDateString('ru-RU')}</span>
-            )}
-          </div>
-        )}
+    <div className="question-card">
+      <div className="question-card__counter">
+        Вопрос {currentIndex + 1} из {dailyData.length}
       </div>
 
-      {!answered ? (
-        <div>
-          <button onClick={() => answer(true)}>✓ Правда</button>
-          <button onClick={() => answer(false)}>✗ Фейк</button>
-        </div>
-      ) : (
-        <div>
-          <p>{isCorrect ? '✓ Верно!' : '✗ Неверно!'}</p>
-          <button onClick={continueToNext}>
-            {currentIndex < dailyData.length ? 'Продолжить' : 'Завершить'}
+      {isModerator && (
+        <div style={{ marginBottom: '10px', fontSize: '12px', color: '#999' }}>
+          <span>ID: {currentNews.id}</span>
+          <button onClick={() => copyNewsId(currentNews.id)} style={{ marginLeft: '10px', fontSize: '12px' }}>
+            📋 Копировать
           </button>
         </div>
+      )}
+
+      <h2 className="question-card__title">{currentNews.headline}</h2>
+
+      {currentNews.media_url && (
+        <img
+          src={currentNews.media_url}
+          alt="Изображение новости"
+          className="question-card__image"
+        />
+      )}
+
+      {currentNews.text && (
+        <p className="question-card__content">
+          {currentNews.text.split(' ').map((word, i) => {
+            // Check if word is a URL
+            if (word.match(/^https?:\/\//) || word.match(/^[a-z0-9-]+\.[a-z]{2,}\//i)) {
+              return (
+                <span key={i}>
+                  <a href={word.startsWith('http') ? word : `https://${word}`} target="_blank" rel="noopener noreferrer">
+                    {word}
+                  </a>{' '}
+                </span>
+              );
+            }
+            return <span key={i}>{word} </span>;
+          })}
+        </p>
+      )}
+
+      {answered && (
+        <div className="question-card__meta">
+          Источник: {currentNews.source_name || 'Неизвестно'}
+          {currentNews.published_date && (
+            <> | Дата: {new Date(currentNews.published_date).toLocaleDateString('ru-RU')}</>
+          )}
+        </div>
+      )}
+
+      {!answered ? (
+        <div className="question-card__buttons">
+          <button
+            className="question-card__button"
+            onClick={() => answer(true)}
+          >
+            REAL
+          </button>
+          <button
+            className="question-card__button question-card__button--danger"
+            onClick={() => answer(false)}
+          >
+            FAKE
+          </button>
+        </div>
+      ) : (
+        <button className="question-card__continue" onClick={continueToNext}>
+          {currentIndex < dailyData.length - 1 ? 'Продолжить' : 'Завершить'}
+        </button>
+      )}
+
+      {answered && (
+        <>
+          <div className="question-card__truth-badge">
+            {currentNews.is_real ? 'REAL' : 'FAKE'}
+          </div>
+          <div className={`question-card__result-badge ${isCorrect ? 'question-card__result-badge--correct' : 'question-card__result-badge--incorrect'}`}>
+            {isCorrect ? '✓' : '✗'}
+          </div>
+        </>
       )}
     </div>
   );

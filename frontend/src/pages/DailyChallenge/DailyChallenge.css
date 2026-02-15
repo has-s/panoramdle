@@ -1,0 +1,474 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;700;900&display=swap');
+
+/* ─── COLOR VARIABLES ────────────────────────────────────── */
+
+:root {
+  /* Main colors */
+  --color-black: #000;
+  --color-white: #fff;
+  --color-accent: rgb(234, 78, 50);
+
+  /* Text colors */
+  --color-text-primary: #000;
+  --color-text-secondary: #333;
+  --color-text-muted: #555;
+  --color-text-light: #666;
+
+  /* Background */
+  --color-bg-card: #fff;
+  --color-bg-feedback-correct: #d4edda;
+  --color-bg-feedback-incorrect: #f8d7da;
+  --color-bg-feedback-neutral: #f0f0f0;
+
+  /* Borders */
+  --color-border-correct: #2d6a4f;
+  --color-border-incorrect: #c1292e;
+
+  /* Button states */
+  --color-btn-confirm: #5ad641;
+  --color-btn-danger: #ff4757;
+
+  /* Grid background */
+  --grid-color: #E1E1E1;
+  --grid-bg: #F3F3F3;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grid-color: rgba(114, 114, 114, 0.3);
+    --grid-bg: #191a1a;
+  }
+}
+
+/* ─── GLOBAL ─────────────────────────────────────────────── */
+
+body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+
+  background-color: var(--grid-bg);
+  background-image:
+    linear-gradient(0deg, transparent 24%, var(--grid-color) 25%, var(--grid-color) 26%, transparent 27%, transparent 74%, var(--grid-color) 75%, var(--grid-color) 76%, transparent 77%, transparent),
+    linear-gradient(90deg, transparent 24%, var(--grid-color) 25%, var(--grid-color) 26%, transparent 27%, transparent 74%, var(--grid-color) 75%, var(--grid-color) 76%, transparent 77%, transparent);
+  background-size: 55px 55px;
+}
+
+/* ─── WELCOME CARD ───────────────────────────────────────── */
+
+.welcome-card {
+  width: 100%;
+  max-width: 480px;
+  padding: 40px;
+  background: var(--color-bg-card);
+  border: 8px solid var(--color-black);
+  box-shadow: 15px 15px 0 var(--color-black);
+  position: relative;
+  overflow: hidden;
+  transform: rotate(-2deg);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.welcome-card:hover {
+  transform: rotate(0deg) scale(1.02);
+  box-shadow: 20px 20px 0 var(--color-black);
+}
+
+.welcome-card:active {
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%   { transform: translateX(0); }
+  25%  { transform: translateX(-6px); }
+  50%  { transform: translateX(6px); }
+  75%  { transform: translateX(-6px); }
+  100% { transform: translateX(0); }
+}
+
+/* ─── BETA BANNER ────────────────────────────────────────── */
+
+.welcome-card__banner {
+  position: absolute;
+  top: 22px;
+  right: -80px;
+  background: var(--color-black);
+  color: var(--color-white);
+  width: 280px;
+  padding: 14px 0;
+  text-align: center;
+  transform: rotate(45deg);
+  font-family: 'Oswald', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  overflow: hidden;
+  transition: background 0.3s ease, color 0.3s ease;
+  cursor: default;
+  z-index: 1;
+}
+
+.welcome-card__banner:hover {
+  background: var(--color-accent);
+  color: var(--color-white);
+}
+
+.welcome-card__banner-text {
+  display: block;
+  position: absolute;
+  width: 110%;
+  text-align: center;
+  top: 50%;
+  left: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  transform: translateY(-50%);
+}
+
+.welcome-card__banner-text--alt {
+  opacity: 0;
+  transform: translateY(60%);
+}
+
+.welcome-card__banner:hover .welcome-card__banner-text--main {
+  opacity: 0;
+  transform: translateY(-150%);
+}
+
+.welcome-card__banner:hover .welcome-card__banner-text--alt {
+  opacity: 1;
+  transform: translateY(-50%);
+}
+
+/* ─── HEADER ─────────────────────────────────────────────── */
+
+.welcome-card__title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 64px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  line-height: 1;
+  margin-bottom: 8px;
+  color: var(--color-text-primary);
+}
+
+.welcome-card__subtitle {
+  font-size: 15px;
+  color: var(--color-text-muted);
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 3px solid var(--color-black);
+}
+
+/* ─── RULES ──────────────────────────────────────────────── */
+
+.welcome-card__rules {
+  list-style: none;
+  margin-bottom: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.welcome-card__rules li {
+  font-size: 15px;
+  padding-left: 20px;
+  position: relative;
+  color: var(--color-text-secondary);
+}
+
+.welcome-card__rules li::before {
+  content: "—";
+  position: absolute;
+  left: 0;
+  font-weight: 900;
+  color: var(--color-black);
+}
+
+/* ─── BUTTON ─────────────────────────────────────────────── */
+
+.welcome-card__button {
+  display: block;
+  width: 50%;
+  margin: 0 auto;
+  padding: 10px;
+  background: var(--color-black);
+  color: var(--color-white);
+  border: 3px solid var(--color-black);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-card__button::after {
+  content: "→";
+  font-family: 'Bebas Neue', sans-serif;
+  position: absolute;
+  top: 50%;
+  right: -30px;
+  transform: translateY(-50%);
+  transition: right 0.3s;
+}
+
+.welcome-card__button:hover {
+  background: var(--color-accent);
+  color: var(--color-white);
+  border-color: var(--color-black);
+}
+
+.welcome-card__button:hover::after {
+  right: 10px;
+}
+
+.welcome-card__button:active {
+  transform: scale(0.95);
+}
+
+/* ─── DAILY BADGE ────────────────────────────────────────── */
+
+.welcome-card__badge {
+  position: absolute;
+  bottom: -10px;
+  right: -10px;
+  background: var(--color-accent);
+  color: var(--color-white);
+  padding: 5px 10px;
+  transform: rotate(-5deg);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 30px;
+  border: 3px solid var(--color-black);
+  transition: transform 0.3s ease;
+  z-index: 1;
+}
+
+.welcome-card:hover .welcome-card__badge {
+  transform: rotate(3deg) scale(1.05);
+}
+
+/* ─── QUESTION CARD ──────────────────────────────────────── */
+
+.question-card {
+  width: 100%;
+  max-width: 600px;
+  padding: 30px;
+  background: var(--color-bg-card);
+  border: 6px solid var(--color-black);
+  box-shadow: 12px 12px 0 var(--color-black);
+  position: relative;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.question-card:hover {
+  transform: translate(-5px, -5px);
+  box-shadow: 17px 17px 0 var(--color-black);
+}
+
+/* ─── QUESTION HEADER ────────────────────────────────────── */
+
+.question-card__counter {
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-light);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.question-card__title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 48px;
+  font-weight: 400;
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+  line-height: 1;
+}
+
+/* ─── QUESTION IMAGE ─────────────────────────────────────── */
+
+.question-card__image {
+  width: 100%;
+  max-height: 350px;
+  object-fit: contain;
+  border: 4px solid var(--color-black);
+  margin-bottom: 20px;
+  display: block;
+}
+
+/* ─── QUESTION CONTENT ───────────────────────────────────── */
+
+.question-card__content {
+  font-family: 'Oswald', sans-serif;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  margin-bottom: 15px;
+}
+
+.question-card__content a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  font-weight: 600;
+  transition: opacity 0.2s ease;
+}
+
+.question-card__content a:hover {
+  opacity: 0.8;
+}
+
+.question-card__meta {
+  font-size: 14px;
+  color: var(--color-text-light);
+  margin-bottom: 25px;
+}
+
+/* ─── QUESTION BUTTONS ───────────────────────────────────── */
+
+.question-card__buttons {
+  position: absolute;
+  bottom: -70px;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.question-card__button {
+  flex: 1;
+  max-width: 250px;
+  border: 3px solid var(--color-black);
+  background: var(--color-black);
+  color: var(--color-white);
+  padding: 12px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+}
+
+.question-card__button::before {
+  content: "SURE?";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 105%;
+  background-color: var(--color-btn-confirm);
+  color: var(--color-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+}
+
+.question-card__button:hover::before {
+  transform: translateY(0);
+}
+
+.question-card__button:active {
+  transform: scale(0.95);
+}
+
+.question-card__button--danger::before {
+  background-color: var(--color-btn-danger);
+}
+
+/* ─── CONTINUE BUTTON ────────────────────────────────────── */
+
+.question-card__continue {
+  position: absolute;
+  bottom: -70px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50%;
+  max-width: 250px;
+  padding: 10px;
+  background: var(--color-black);
+  color: var(--color-white);
+  border: 3px solid var(--color-black);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.question-card__continue:hover {
+  background: var(--color-accent);
+  color: var(--color-black);
+}
+
+.question-card__continue:active {
+  transform: translateX(-50%) scale(0.95);
+}
+
+/* ─── ANSWER FEEDBACK BADGES ─────────────────────────────── */
+
+.question-card__result-badge {
+  position: absolute;
+  top: 35px;
+  right: -10px;
+  padding: 6px 12px;
+  transform: rotate(5deg);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 36px;
+  line-height: 1;
+  border: 3px solid var(--color-black);
+  transition: transform 0.3s ease;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.question-card__result-badge--correct {
+  background: var(--color-btn-confirm);
+  color: var(--color-black);
+}
+
+.question-card__result-badge--incorrect {
+  background: var(--color-btn-danger);
+  color: var(--color-white);
+}
+
+.question-card:hover .question-card__result-badge {
+  transform: rotate(-3deg) scale(1.05);
+}
+
+.question-card__truth-badge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  padding: 6px 12px;
+  transform: rotate(5deg);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: 1px;
+  border: 3px solid var(--color-black);
+  background: var(--color-accent);
+  color: var(--color-black);
+  transition: transform 0.3s ease;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.question-card:hover .question-card__truth-badge {
+  transform: rotate(3deg) scale(1.05);
+}
