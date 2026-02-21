@@ -6,6 +6,7 @@ export interface News {
   source_name: string | null;
   published_date: string | null;
   is_real: boolean;
+  author_comment: string | null;
 }
 
 export interface DailyChallenge {

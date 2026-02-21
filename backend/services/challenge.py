@@ -93,7 +93,8 @@ async def generate_daily_challenge(challenge_date: date, moderator_id: Optional[
             "media_url": item["media_url"],
             "source_name": item["source_name"],
             "published_date": str(item["published_date"]) if item["published_date"] else None,
-            "is_real": item["is_real"]
+            "is_real": item["is_real"],
+            "author_comment": item["author_comment"]
         })
 
     insert_query = daily_challenge.insert().values(

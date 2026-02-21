@@ -78,12 +78,30 @@ export const authApi = {
     formData.append('username', username);
     formData.append('password', password);
 
-    const { data } = await api.post<AuthResponse>('/auth/login', formData);
+    const { data } = await api.post<AuthResponse>('/auth/login', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return data;
   },
 
   logout: async (): Promise<void> => {
     await api.post('/auth/logout');
+  },
+
+  checkAuth: async (): Promise<{ authenticated: boolean; username: string; role: string }> => {
+    const { data } = await api.get<{ authenticated: boolean; moderator?: { username: string; role: string } }>('/auth/me');
+
+    if (!data.authenticated || !data.moderator) {
+      return { authenticated: false, username: '', role: '' };
+    }
+
+    return {
+      authenticated: true,
+      username: data.moderator.username,
+      role: data.moderator.role,
+    };
   },
 
   me: async (): Promise<AuthResponse> => {
@@ -101,6 +119,11 @@ export const authApi = {
 export const moderationApi = {
   getNews: async (): Promise<News[]> => {
     const { data } = await api.get<News[]>('/moderation/api/news');
+    return data;
+  },
+
+  getNewsById: async (id: string): Promise<News> => {
+    const { data } = await api.get<News>(`/news/${id}`);
     return data;
   },
 

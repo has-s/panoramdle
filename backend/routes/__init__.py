@@ -1,3 +1,3 @@
-from . import daily, moderation, auth
+from . import daily, moderation, auth, news
 
-__all__ = ["daily", "moderation", "auth"]
+__all__ = ["daily", "moderation", "auth", "news"]

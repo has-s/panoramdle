@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Request, HTTPException, Form
+from fastapi import APIRouter, Request, HTTPException, Form, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from datetime import date as date_type
 import logging
 
 from backend.db import database
+from backend.middleware import require_admin
 from backend.services.challenge import generate_daily_challenge, get_daily_challenge
 
 router = APIRouter()
@@ -127,3 +128,48 @@ async def submit_challenge_result(challenge_date: str = Form(...), correct_count
     except Exception as e:
         logger.error(f"Submit error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to submit result")
+
+
+@router.post("/api/daily/refresh")
+async def refresh_daily_challenge(
+        request: Request,
+        admin: dict = Depends(require_admin)
+):
+    """Refresh today's daily challenge - regenerate with current news (Admin only)"""
+    today = date_type.today()
+
+    try:
+        from backend.models.challenge import daily_challenge
+
+        # Delete existing challenge for today
+        await database.execute(
+            daily_challenge.delete().where(daily_challenge.c.challenge_date == today)
+        )
+
+        logger.info(f"Admin {admin['username']} refreshed daily challenge for {today}")
+
+        # Generate new challenge
+        new_challenge = await generate_daily_challenge(today)
+
+        # Log the action
+        from backend.services.auth import log_action
+        from backend.middleware import get_client_ip
+
+        await log_action(
+            moderator_id=admin["id"],
+            action="refresh_daily_challenge",
+            target_type="daily_challenge",
+            target_id=str(today),
+            ip_address=get_client_ip(request)
+        )
+
+        return {
+            "ok": True,
+            "message": "Daily challenge refreshed",
+            "challenge_date": str(today),
+            "news_count": len(new_challenge.get("news", []))
+        }
+
+    except Exception as e:
+        logger.error(f"Error refreshing daily challenge: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to refresh challenge: {str(e)}")

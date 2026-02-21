@@ -66,6 +66,7 @@ export const clearProgress = (): void => {
   deleteCookie(`challenge_progress_${today}`);
 };
 
+// Use localStorage for detailed results (cookies have 4KB limit)
 export const saveDetailedResults = (results: boolean[], newsData: any[], date: string): void => {
   const today = getTodayDate();
   const detailedResults = {
@@ -73,25 +74,47 @@ export const saveDetailedResults = (results: boolean[], newsData: any[], date: s
     newsData,
     date
   };
-  const expires = new Date();
-  expires.setHours(23, 59, 59, 999);
-  setCookie(`challenge_results_${today}`, JSON.stringify(detailedResults), expires);
+  try {
+    localStorage.setItem(`challenge_results_${today}`, JSON.stringify(detailedResults));
+  } catch (error) {
+    console.error('Failed to save detailed results:', error);
+  }
 };
 
 export const loadDetailedResults = (): { results: boolean[]; newsData: any[]; date: string } | null => {
   const today = getTodayDate();
-  const resultsJson = getCookie(`challenge_results_${today}`);
-
-  if (!resultsJson) return null;
 
   try {
+    const resultsJson = localStorage.getItem(`challenge_results_${today}`);
+    if (!resultsJson) return null;
+
     return JSON.parse(resultsJson);
-  } catch {
+  } catch (error) {
+    console.error('Failed to load detailed results:', error);
     return null;
   }
 };
 
 export const clearDetailedResults = (): void => {
   const today = getTodayDate();
-  deleteCookie(`challenge_results_${today}`);
+  try {
+    localStorage.removeItem(`challenge_results_${today}`);
+  } catch (error) {
+    console.error('Failed to clear detailed results:', error);
+  }
+};
+
+// Clean up old localStorage entries (keep only today's)
+export const cleanupOldResults = (): void => {
+  const today = getTodayDate();
+  try {
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('challenge_results_') && !key.includes(today)) {
+        localStorage.removeItem(key);
+      }
+    });
+  } catch (error) {
+    console.error('Failed to cleanup old results:', error);
+  }
 };

@@ -1,12 +1,9 @@
 from fastapi import APIRouter, Request, Form, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from datetime import date
-import uuid
 import logging
 
 from backend.db import database
-from backend.models import news
 from backend.models.auth import moderators
 from backend.middleware import require_auth, require_admin, get_client_ip
 from backend.services.auth import log_action, hash_password, verify_password
@@ -19,70 +16,6 @@ logger = logging.getLogger(__name__)
 @router.get("/moderation/", response_class=HTMLResponse)
 async def moderation_home(request: Request, moderator: dict = Depends(require_auth)):
     return tests.TemplateResponse("test_moderation.html", {"request": request})
-
-
-@router.get("/moderation/news/add", response_class=HTMLResponse)
-async def add_news_page(request: Request):
-    return tests.TemplateResponse("test_addnews.html", {"request": request})
-
-
-@router.post("/api/news/add")
-async def add_news(
-        request: Request,
-        moderator: dict = Depends(require_auth),
-        headline: str = Form(...),
-        text: str = Form(""),
-        format: str = Form(...),
-        is_real: str = Form(...),
-        media_url: str = Form(""),
-        source_name: str = Form(""),
-        published_date: str = Form(""),
-):
-    logger.info(f"Moderator {moderator['username']} adding news: {headline}")
-
-    is_real_bool = is_real.lower() == "true"
-    text_value = text if text.strip() else None
-    media_url_value = media_url if media_url.strip() else None
-    source_name_value = source_name if source_name.strip() else None
-
-    try:
-        if published_date:
-            published_date_value = date.fromisoformat(published_date)
-        else:
-            published_date_value = date.today()
-
-        news_id = str(uuid.uuid4())
-
-        query = news.insert().values(
-            id=news_id,
-            headline=headline,
-            text=text_value,
-            format=format,
-            is_real=is_real_bool,
-            media_url=media_url_value,
-            source_name=source_name_value,
-            published_date=published_date_value,
-        )
-        await database.execute(query)
-
-        await log_action(
-            moderator_id=moderator["id"],
-            action="create_news",
-            target_type="news",
-            target_id=news_id,
-            details={
-                "headline": headline,
-                "is_real": is_real_bool,
-                "format": format
-            },
-            ip_address=get_client_ip(request)
-        )
-
-        logger.info(f"News added by {moderator['username']}: {news_id}")
-        return {"ok": True}
-    except Exception as e:
-        logger.error(f"Database error: {str(e)}")
-        return JSONResponse({"error": str(e), "ok": False}, status_code=500)
 
 
 @router.get("/api/users/me")

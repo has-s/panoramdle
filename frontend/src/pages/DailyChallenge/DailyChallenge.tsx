@@ -163,53 +163,79 @@ export const DailyChallenge = () => {
 
   // Welcome screen (already completed)
   if (hasCompletedToday() && showWelcome) {
+    const score = savedResults ? savedResults.results.filter(Boolean).length : 0;
+    const total = savedResults ? savedResults.results.length : 10;
+    const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
+
+    let message = '';
+    if (percentage === 100) message = 'Идеально!';
+    else if (percentage >= 80) message = 'Отлично!';
+    else if (percentage >= 60) message = 'Хорошо!';
+    else if (percentage >= 40) message = 'Неплохо!';
+    else message = 'Попробуйте ещё раз!';
+
     return (
-      <div>
-        <h1>Panoramdle</h1>
-        <p>Вы уже прошли сегодняшний челлендж!</p>
+      <div className="results-card">
+        <div className="results-card__header">
+          <h2 className="results-card__title">Вы уже прошли челлендж!</h2>
+          {savedResults && (
+            <>
+              <div className="results-card__score">
+                <span className="results-card__score-value">{score}</span>
+                <span className="results-card__score-divider">/</span>
+                <span className="results-card__score-total">{total}</span>
+              </div>
+              <p className="results-card__message">{message}</p>
+            </>
+          )}
+        </div>
+
         {stats && stats.total_attempts > 0 && (
-          <p>Средний результат сегодня: {stats.average_percentage}%</p>
+          <div className="results-card__stats">
+            Средний результат сегодня: {stats.average_percentage}%
+          </div>
         )}
 
         {savedResults && (
-          <div style={{ marginTop: '20px' }}>
-            <button onClick={() => setShowDetailedResults(!showDetailedResults)}>
+          <>
+            <button
+              className="results-card__toggle"
+              onClick={() => setShowDetailedResults(!showDetailedResults)}
+            >
               {showDetailedResults ? 'Скрыть подробности' : 'Посмотреть подробнее'}
             </button>
 
             {showDetailedResults && (
-              <div style={{ marginTop: '20px' }}>
-                <h3>Ваши результаты:</h3>
-                <div>
-                  Правильных ответов: {savedResults.results.filter(Boolean).length} / {savedResults.results.length}
-                </div>
+              <div className="results-card__details">
                 {savedResults.newsData.map((news, index) => (
-                  <div key={news.id} style={{
-                    marginTop: '15px',
-                    padding: '10px',
-                    border: '1px solid #ccc',
-                    backgroundColor: savedResults.results[index] ? '#e8f5e9' : '#ffebee'
-                  }}>
-                    <div>
-                      <strong>Вопрос {index + 1}:</strong> {news.headline}
+                  <div
+                    key={news.id}
+                    className={`results-card__item ${savedResults.results[index] ? 'results-card__item--correct' : 'results-card__item--incorrect'}`}
+                  >
+                    <div className="results-card__item-header">
+                      <span className="results-card__item-number">#{index + 1}</span>
+                      <span className={`results-card__item-badge ${savedResults.results[index] ? 'results-card__item-badge--correct' : 'results-card__item-badge--incorrect'}`}>
+                        {savedResults.results[index] ? '✓' : '✗'}
+                      </span>
                     </div>
-                    <div>
-                      Источник: {news.source_name || 'Неизвестно'}
-                    </div>
-                    <div>
-                      {savedResults.results[index] ? '✓ Правильно' : '✗ Неправильно'}
-                    </div>
-                    <div>
-                      Это была: {news.is_real ? 'Правда' : 'Фейк'}
+                    <div className="results-card__item-headline">{news.headline}</div>
+                    <div className="results-card__item-meta">
+                      <span>Источник: {news.source_name || 'Неизвестно'}</span>
+                      <span className={`results-card__item-truth ${news.is_real ? 'results-card__item-truth--real' : 'results-card__item-truth--fake'}`}>
+                        {news.is_real ? 'REAL' : 'FAKE'}
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </>
         )}
 
-        <p style={{ marginTop: '20px' }}>Возвращайтесь завтра за новыми новостями.</p>
+        <div className="results-card__footer">
+          Возвращайтесь завтра за новыми новостями.
+        </div>
+
       </div>
     );
   }
@@ -267,53 +293,67 @@ export const DailyChallenge = () => {
     else message = 'Попробуйте ещё раз!';
 
     return (
-      <div>
-        <h2>Челлендж завершён!</h2>
-        <div>{score} / {total}</div>
-        <p>{message}</p>
+      <div className="results-card">
+        <div className="results-card__header">
+          <h2 className="results-card__title">Челлендж завершён!</h2>
+          <div className="results-card__score">
+            <span className="results-card__score-value">{score}</span>
+            <span className="results-card__score-divider">/</span>
+            <span className="results-card__score-total">{total}</span>
+          </div>
+          <p className="results-card__message">{message}</p>
+        </div>
 
         {isModerator && (
-          <p>(Результаты модераторов не учитываются в статистике)</p>
+          <div className="results-card__moderator-note">
+            (Результаты модераторов не учитываются в статистике)
+          </div>
         )}
 
         {!isModerator && finalStats && finalStats.total_attempts > 1 && (
-          <p>Средний результат сегодня: {finalStats.average_percentage}%</p>
+          <div className="results-card__stats">
+            Средний результат сегодня: {finalStats.average_percentage}%
+          </div>
         )}
 
-        <div style={{ marginTop: '30px' }}>
-          <button onClick={() => setShowDetailedResults(!showDetailedResults)}>
-            {showDetailedResults ? 'Скрыть подробности' : 'Посмотреть подробнее'}
-          </button>
+        <button
+          className="results-card__toggle"
+          onClick={() => setShowDetailedResults(!showDetailedResults)}
+        >
+          {showDetailedResults ? 'Скрыть подробности' : 'Посмотреть подробнее'}
+        </button>
 
-          {showDetailedResults && (
-            <div style={{ marginTop: '20px' }}>
-              <h3>Подробные результаты:</h3>
-              {dailyData.map((news, index) => (
-                <div key={news.id} style={{
-                  marginBottom: '15px',
-                  padding: '10px',
-                  border: '1px solid #ccc',
-                  backgroundColor: results[index] ? '#e8f5e9' : '#ffebee'
-                }}>
-                  <div>
-                    <strong>Вопрос {index + 1}:</strong> {news.headline}
-                  </div>
-                  <div>
-                    Источник: {news.source_name || 'Неизвестно'}
-                  </div>
-                  <div>
-                    {results[index] ? '✓ Правильно' : '✗ Неправильно'}
-                  </div>
-                  <div>
-                    Это была: {news.is_real ? 'Правда' : 'Фейк'}
-                  </div>
+        {showDetailedResults && (
+          <div className="results-card__details">
+            {dailyData.map((news, index) => (
+              <div
+                key={news.id}
+                className={`results-card__item ${results[index] ? 'results-card__item--correct' : 'results-card__item--incorrect'}`}
+              >
+                <div className="results-card__item-header">
+                  <span className="results-card__item-number">#{index + 1}</span>
+                  <span className={`results-card__item-badge ${results[index] ? 'results-card__item-badge--correct' : 'results-card__item-badge--incorrect'}`}>
+                    {results[index] ? '✓' : '✗'}
+                  </span>
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="results-card__item-headline">{news.headline}</div>
+                <div className="results-card__item-meta">
+                  <span>Источник: {news.source_name || 'Неизвестно'}</span>
+                  <span className={`results-card__item-truth ${news.is_real ? 'results-card__item-truth--real' : 'results-card__item-truth--fake'}`}>
+                    {news.is_real ? 'REAL' : 'FAKE'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="results-card__footer">
+          Возвращайтесь завтра за новым челленджем!
         </div>
 
-        <p style={{ marginTop: '30px' }}>Возвращайтесь завтра за новым челленджем!</p>
+        {/* Daily badge */}
+        <div className="results-card__badge">DAILY</div>
       </div>
     );
   }
@@ -322,6 +362,9 @@ export const DailyChallenge = () => {
   if (!currentNews) {
     return <div>Загрузка...</div>;
   }
+
+  console.log('currentNews:', currentNews);
+  console.log('author_comment:', currentNews.author_comment);
 
   return (
     <div className="question-card">
@@ -372,6 +415,12 @@ export const DailyChallenge = () => {
           {currentNews.published_date && (
             <> | Дата: {new Date(currentNews.published_date).toLocaleDateString('ru-RU')}</>
           )}
+        </div>
+      )}
+
+      {answered && currentNews.author_comment && (
+        <div className="question-card__author-comment">
+          <strong>Комментарий модератора:</strong> {currentNews.author_comment}
         </div>
       )}
 

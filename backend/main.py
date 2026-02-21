@@ -10,7 +10,7 @@ from datetime import datetime
 import logging
 
 from backend.db import database
-from backend.routes import daily, moderation, auth
+from backend.routes import daily, moderation, auth, news
 from backend.middleware import require_admin, ForbiddenHTMLException
 
 logging.basicConfig(level=logging.INFO)
@@ -68,6 +68,8 @@ backend.mount("/static", StaticFiles(directory="backend/static"), name="static")
 backend.include_router(daily.router, tags=["Daily Quiz"])
 backend.include_router(moderation.router, tags=["Moderation"])
 backend.include_router(auth.router, tags=["Authentication"])
+
+backend.include_router(news.router, tags=["News"])
 
 
 @backend.get("/health")
