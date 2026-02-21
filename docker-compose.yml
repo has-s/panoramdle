@@ -6,7 +6,7 @@ services:
     container_name: panoramdle_frontend
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5173:5173"
+      - "0.0.0.0:8000:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -19,8 +19,6 @@ services:
     build: .
     container_name: panoramdle_backend
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     depends_on:
       db:
         condition: service_healthy
