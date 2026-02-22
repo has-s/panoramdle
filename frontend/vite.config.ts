@@ -12,6 +12,10 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    allowedHosts: [
+      'panoramdle.has-s.site',
+      '.has-s.site'
+    ],
     proxy: {
       '/api': {
         target: 'http://backend:8000',

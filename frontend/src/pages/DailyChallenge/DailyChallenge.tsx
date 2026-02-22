@@ -31,22 +31,31 @@ export const DailyChallenge = () => {
   const [showDetailedResults, setShowDetailedResults] = useState(false);
   const [savedResults, setSavedResults] = useState<{ results: boolean[]; newsData: News[] } | null>(null);
 
-  useEffect(() => {
-    document.title = 'Panoramdle - Daily Challenge';
-    checkAuth();
-    loadTodayStats();
+useEffect(() => {
+  document.title = 'Panoramdle - Daily Challenge';
+  checkAuth();
+  loadTodayStats();
 
-    // Load saved results if completed today
-    if (hasCompletedToday()) {
-      const detailed = loadDetailedResults();
-      if (detailed) {
-        setSavedResults({
-          results: detailed.results,
-          newsData: detailed.newsData
-        });
-      }
+  if (hasCompletedToday()) {
+    const detailed = loadDetailedResults();
+    if (detailed) {
+      setSavedResults({
+        results: detailed.results,
+        newsData: detailed.newsData
+      });
     }
-  }, []);
+  }
+}, []);
+
+useEffect(() => {
+  if (dailyData.length > 0 && currentIndex < dailyData.length - 1) {
+    const nextNews = dailyData[currentIndex + 1];
+    if (nextNews?.media_url) {
+      const img = new Image();
+      img.src = nextNews.media_url;
+    }
+  }
+}, [currentIndex, dailyData]);
 
   const checkAuth = async () => {
     try {
@@ -353,7 +362,6 @@ export const DailyChallenge = () => {
         </div>
 
         {/* Daily badge */}
-        <div className="results-card__badge">DAILY</div>
       </div>
     );
   }
@@ -388,6 +396,7 @@ export const DailyChallenge = () => {
           src={currentNews.media_url}
           alt="Изображение новости"
           className="question-card__image"
+          loading="lazy"
         />
       )}
 
