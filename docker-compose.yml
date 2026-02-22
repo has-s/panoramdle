@@ -6,7 +6,7 @@ services:
     container_name: panoramdle_frontend
     restart: unless-stopped
     ports:
-      - "0.0.0.0:8000:5173"
+      - "0.0.0.0:5173:5173"  # ← Открыто наружу
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -19,6 +19,8 @@ services:
     build: .
     container_name: panoramdle_backend
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"  # ← Только локально
     depends_on:
       db:
         condition: service_healthy
