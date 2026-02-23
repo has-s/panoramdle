@@ -11,6 +11,7 @@ import {
   saveDetailedResults,
   loadDetailedResults
 } from '@/utils/cookies';
+import { formatSourceUrl, isUrl } from '@/utils/formatUrl';
 import type { News, DailyChallengeStats } from '@/types';
 
 export const DailyChallenge = () => {
@@ -31,38 +32,37 @@ export const DailyChallenge = () => {
   const [showDetailedResults, setShowDetailedResults] = useState(false);
   const [savedResults, setSavedResults] = useState<{ results: boolean[]; newsData: News[] } | null>(null);
 
-useEffect(() => {
-  document.title = 'Panoramdle - Daily Challenge';
-  checkAuth();
-  loadTodayStats();
+  useEffect(() => {
+    document.title = 'Panoramdle - Daily Challenge';
+    checkAuth();
+    loadTodayStats();
 
-  if (hasCompletedToday()) {
-    const detailed = loadDetailedResults();
-    if (detailed) {
-      setSavedResults({
-        results: detailed.results,
-        newsData: detailed.newsData
-      });
+    if (hasCompletedToday()) {
+      const detailed = loadDetailedResults();
+      if (detailed) {
+        setSavedResults({
+          results: detailed.results,
+          newsData: detailed.newsData
+        });
+      }
     }
-  }
-}, []);
+  }, []);
 
-useEffect(() => {
-  if (dailyData.length > 0 && currentIndex < dailyData.length - 1) {
-    const nextNews = dailyData[currentIndex + 1];
-    if (nextNews?.media_url) {
-      const img = new Image();
-      img.src = nextNews.media_url;
+  useEffect(() => {
+    if (dailyData.length > 0 && currentIndex < dailyData.length - 1) {
+      const nextNews = dailyData[currentIndex + 1];
+      if (nextNews?.media_url) {
+        const img = new Image();
+        img.src = nextNews.media_url;
+      }
     }
-  }
-}, [currentIndex, dailyData]);
+  }, [currentIndex, dailyData]);
 
   const checkAuth = async () => {
     try {
       await authApi.me();
       setIsModerator(true);
     } catch {
-      // Regular users are not moderators - this is expected
       setIsModerator(false);
     }
   };
@@ -102,7 +102,6 @@ useEffect(() => {
         setCurrentIndex(savedProgress.index);
         setResults(savedProgress.results);
         setCurrentNews(newsData[savedProgress.index]);
-        console.log('Восстановлен прогресс:', savedProgress.index, 'вопрос');
       } else {
         setCurrentIndex(0);
         setResults([]);
@@ -125,7 +124,6 @@ useEffect(() => {
     setIsCorrect(correct);
     setAnswered(true);
 
-    // Don't increment index yet - will do it in continueToNext
     saveProgress(currentIndex, newResults, challengeDate);
   };
 
@@ -148,8 +146,6 @@ useEffect(() => {
 
     setChallengeCompleted();
     clearProgress();
-
-    // Save detailed results for later viewing
     saveDetailedResults(results, dailyData, challengeDate);
 
     if (!isModerator) {
@@ -170,7 +166,6 @@ useEffect(() => {
     });
   };
 
-  // Welcome screen (already completed)
   if (hasCompletedToday() && showWelcome) {
     const score = savedResults ? savedResults.results.filter(Boolean).length : 0;
     const total = savedResults ? savedResults.results.length : 10;
@@ -229,7 +224,21 @@ useEffect(() => {
                     </div>
                     <div className="results-card__item-headline">{news.headline}</div>
                     <div className="results-card__item-meta">
-                      <span>Источник: {news.source_name || 'Неизвестно'}</span>
+                      <span>
+                        Источник:{' '}
+                        {isUrl(news.source_name) ? (
+                          <a
+                            href={news.source_name!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="results-card__source-link"
+                          >
+                            {formatSourceUrl(news.source_name)}
+                          </a>
+                        ) : (
+                          formatSourceUrl(news.source_name) || 'Неизвестно'
+                        )}
+                      </span>
                       <span className={`results-card__item-truth ${news.is_real ? 'results-card__item-truth--real' : 'results-card__item-truth--fake'}`}>
                         {news.is_real ? 'REAL' : 'FAKE'}
                       </span>
@@ -249,7 +258,6 @@ useEffect(() => {
     );
   }
 
-  // Welcome screen (before start)
   if (showWelcome) {
     return (
       <div className="welcome-card">
@@ -273,12 +281,10 @@ useEffect(() => {
     );
   }
 
-  // Loading
   if (loading) {
     return <div>Загрузка квиза...</div>;
   }
 
-  // Error
   if (error) {
     return (
       <div>
@@ -288,7 +294,6 @@ useEffect(() => {
     );
   }
 
-  // Results screen
   if (showResults) {
     const score = results.filter(Boolean).length;
     const total = results.length;
@@ -347,7 +352,21 @@ useEffect(() => {
                 </div>
                 <div className="results-card__item-headline">{news.headline}</div>
                 <div className="results-card__item-meta">
-                  <span>Источник: {news.source_name || 'Неизвестно'}</span>
+                  <span>
+                    Источник:{' '}
+                    {isUrl(news.source_name) ? (
+                      <a
+                        href={news.source_name!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="results-card__source-link"
+                      >
+                        {formatSourceUrl(news.source_name)}
+                      </a>
+                    ) : (
+                      formatSourceUrl(news.source_name) || 'Неизвестно'
+                    )}
+                  </span>
                   <span className={`results-card__item-truth ${news.is_real ? 'results-card__item-truth--real' : 'results-card__item-truth--fake'}`}>
                     {news.is_real ? 'REAL' : 'FAKE'}
                   </span>
@@ -361,18 +380,13 @@ useEffect(() => {
           Возвращайтесь завтра за новым челленджем!
         </div>
 
-        {/* Daily badge */}
       </div>
     );
   }
 
-  // Question screen
   if (!currentNews) {
     return <div>Загрузка...</div>;
   }
-
-  console.log('currentNews:', currentNews);
-  console.log('author_comment:', currentNews.author_comment);
 
   return (
     <div className="question-card">
@@ -403,7 +417,6 @@ useEffect(() => {
       {currentNews.text && (
         <p className="question-card__content">
           {currentNews.text.split(' ').map((word, i) => {
-            // Check if word is a URL
             if (word.match(/^https?:\/\//) || word.match(/^[a-z0-9-]+\.[a-z]{2,}\//i)) {
               return (
                 <span key={i}>
@@ -420,7 +433,19 @@ useEffect(() => {
 
       {answered && (
         <div className="question-card__meta">
-          Источник: {currentNews.source_name || 'Неизвестно'}
+          Источник:{' '}
+          {isUrl(currentNews.source_name) ? (
+            <a
+              href={currentNews.source_name!}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="question-card__source-link"
+            >
+              {formatSourceUrl(currentNews.source_name)}
+            </a>
+          ) : (
+            formatSourceUrl(currentNews.source_name) || 'Неизвестно'
+          )}
           {currentNews.published_date && (
             <> | Дата: {new Date(currentNews.published_date).toLocaleDateString('ru-RU')}</>
           )}
@@ -435,16 +460,10 @@ useEffect(() => {
 
       {!answered ? (
         <div className="question-card__buttons">
-          <button
-            className="question-card__button"
-            onClick={() => answer(true)}
-          >
+          <button className="question-card__button" onClick={() => answer(true)}>
             REAL
           </button>
-          <button
-            className="question-card__button question-card__button--danger"
-            onClick={() => answer(false)}
-          >
+          <button className="question-card__button question-card__button--danger" onClick={() => answer(false)}>
             FAKE
           </button>
         </div>
