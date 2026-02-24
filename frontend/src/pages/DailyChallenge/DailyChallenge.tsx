@@ -162,12 +162,18 @@ export const DailyChallenge = () => {
     setShowResults(true);
   };
 
-  const handleRetry = () => {
-    localStorage.removeItem(`challenge_results_${getTodayDate()}`);
-    setShowWelcome(true);
-    setSavedResults(null);
-    setShowDetailedResults(false);
-  };
+    const handleRetry = () => {
+      const today = getTodayDate();
+      localStorage.removeItem(`challenge_results_${today}`);
+      document.cookie = `challenge_${today}=; path=/; max-age=0`;
+      setShowWelcome(true);
+      setSavedResults(null);
+      setShowDetailedResults(false);
+      setShowResults(false);
+      setDailyData([]);
+      setResults([]);
+      setCurrentIndex(0);
+    };
 
   const copyNewsId = (newsId: string) => {
     navigator.clipboard.writeText(newsId).catch(err => {
