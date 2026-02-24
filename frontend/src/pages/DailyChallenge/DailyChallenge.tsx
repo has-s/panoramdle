@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { dailyApi, authApi } from '@/services/api';
 import './DailyChallenge.css';
 import {
@@ -15,6 +16,7 @@ import { formatSourceUrl, isUrl } from '@/utils/formatUrl';
 import type { News, DailyChallengeStats } from '@/types';
 
 export const DailyChallenge = () => {
+  const navigate = useNavigate();
   const [dailyData, setDailyData] = useState<News[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [results, setResults] = useState<boolean[]>([]);
@@ -160,6 +162,22 @@ export const DailyChallenge = () => {
     setShowResults(true);
   };
 
+  const handleRetry = () => {
+      const today = getTodayDate();
+
+      localStorage.removeItem(`challenge_results_${today}`);
+
+      document.cookie = `challenge_${today}=; path=/; max-age=0`;
+
+      setShowWelcome(true);
+      setSavedResults(null);
+      setShowDetailedResults(false);
+      setShowResults(false);
+      setDailyData([]);
+      setResults([]);
+      setCurrentIndex(0);
+    };
+
   const copyNewsId = (newsId: string) => {
     navigator.clipboard.writeText(newsId).catch(err => {
       alert('Ошибка копирования: ' + err);
@@ -202,12 +220,23 @@ export const DailyChallenge = () => {
 
         {savedResults && (
           <>
-            <button
-              className="results-card__toggle"
-              onClick={() => setShowDetailedResults(!showDetailedResults)}
-            >
-              {showDetailedResults ? 'Скрыть подробности' : 'Посмотреть подробнее'}
-            </button>
+            <div className="results-card__actions">
+              <button
+                className="results-card__toggle"
+                onClick={() => setShowDetailedResults(!showDetailedResults)}
+              >
+                {showDetailedResults ? 'Скрыть подробности' : 'Посмотреть подробнее'}
+              </button>
+
+              {isModerator && (
+                <button
+                  className="results-card__retry"
+                  onClick={handleRetry}
+                >
+                  Пройти заново
+                </button>
+              )}
+            </div>
 
             {showDetailedResults && (
               <div className="results-card__details">
@@ -261,9 +290,15 @@ export const DailyChallenge = () => {
   if (showWelcome) {
     return (
       <div className="welcome-card">
-        <div className="welcome-card__banner">
+        <div
+          className="welcome-card__banner"
+          onClick={() => isModerator && navigate('/moderation')}
+          style={{ cursor: isModerator ? 'pointer' : 'default' }}
+        >
           <span className="welcome-card__banner-text welcome-card__banner-text--main">BETA</span>
-          <span className="welcome-card__banner-text welcome-card__banner-text--alt">NEW</span>
+          <span className="welcome-card__banner-text welcome-card__banner-text--alt">
+            {isModerator ? 'НА ПАНЕЛЬ' : 'NEW'}
+          </span>
         </div>
         <h1 className="welcome-card__title">Panoramdle</h1>
         <p className="welcome-card__subtitle">Сможете отличить реальные новости от фейковых?</p>
@@ -330,12 +365,23 @@ export const DailyChallenge = () => {
           </div>
         )}
 
-        <button
-          className="results-card__toggle"
-          onClick={() => setShowDetailedResults(!showDetailedResults)}
-        >
-          {showDetailedResults ? 'Скрыть подробности' : 'Посмотреть подробнее'}
-        </button>
+        <div className="results-card__actions">
+          <button
+            className="results-card__toggle"
+            onClick={() => setShowDetailedResults(!showDetailedResults)}
+          >
+            {showDetailedResults ? 'Скрыть подробности' : 'Посмотреть подробнее'}
+          </button>
+
+          {isModerator && (
+            <button
+              className="results-card__retry"
+              onClick={handleRetry}
+            >
+              Пройти заново
+            </button>
+          )}
+        </div>
 
         {showDetailedResults && (
           <div className="results-card__details">
