@@ -163,20 +163,11 @@ export const DailyChallenge = () => {
   };
 
   const handleRetry = () => {
-      const today = getTodayDate();
-
-      localStorage.removeItem(`challenge_results_${today}`);
-
-      document.cookie = `challenge_${today}=; path=/; max-age=0`;
-
-      setShowWelcome(true);
-      setSavedResults(null);
-      setShowDetailedResults(false);
-      setShowResults(false);
-      setDailyData([]);
-      setResults([]);
-      setCurrentIndex(0);
-    };
+    localStorage.removeItem(`challenge_results_${getTodayDate()}`);
+    setShowWelcome(true);
+    setSavedResults(null);
+    setShowDetailedResults(false);
+  };
 
   const copyNewsId = (newsId: string) => {
     navigator.clipboard.writeText(newsId).catch(err => {
@@ -282,7 +273,6 @@ export const DailyChallenge = () => {
         <div className="results-card__footer">
           Возвращайтесь завтра за новыми новостями.
         </div>
-
       </div>
     );
   }
@@ -425,7 +415,6 @@ export const DailyChallenge = () => {
         <div className="results-card__footer">
           Возвращайтесь завтра за новым челленджем!
         </div>
-
       </div>
     );
   }
