@@ -16,7 +16,7 @@ interface NewsFormData {
 
 export const NewsEdit = () => {
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams();
   const [user, setUser] = useState<{ username: string; role: string } | null>(null);
   const [formData, setFormData] = useState<NewsFormData>({
     headline: '',
@@ -29,19 +29,27 @@ export const NewsEdit = () => {
     author_comment: '',
   });
   const [loading, setLoading] = useState(true);
-  const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    const init = async () => {
+      await checkAuth();
+      if (id) {
+        await loadNews();
+      }
+    };
+    init();
+  }, [id]);
 
   const checkAuth = async () => {
     try {
       const data = await authApi.checkAuth();
       if (data.authenticated) {
         setUser({ username: data.username, role: data.role });
-        await loadNews();
       } else {
         navigate('/login');
       }
@@ -51,31 +59,31 @@ export const NewsEdit = () => {
   };
 
   const loadNews = async () => {
-    if (!id) {
-      setError('ID новости не указан');
-      setLoading(false);
-      return;
-    }
-
+    setLoading(true);
     try {
       const response = await fetch(`/api/news/${id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setFormData({
-          headline: data.headline,
-          text: data.text || '',
-          media_url: data.media_url || '',
-          source_name: data.source_name || '',
-          format: data.format,
-          is_real: data.is_real,
-          published_date: data.published_date || new Date().toISOString().split('T')[0],
-          author_comment: data.author_comment || '',
-        });
-      } else {
-        setError('Новость не найдена');
+      if (!response.ok) {
+        throw new Error('Новость не найдена');
+      }
+      const news = await response.json();
+
+      setFormData({
+        headline: news.headline,
+        text: news.text || '',
+        media_url: news.media_url || '',
+        source_name: news.source_name || '',
+        format: news.format,
+        is_real: news.is_real,
+        published_date: news.published_date || new Date().toISOString().split('T')[0],
+        author_comment: news.author_comment || '',
+      });
+
+      // Проверяем существующее фото
+      if (news.media_url) {
+        validateImage(news.media_url);
       }
     } catch (err) {
-      setError('Ошибка загрузки');
+      setError('Ошибка загрузки новости');
     } finally {
       setLoading(false);
     }
@@ -90,6 +98,28 @@ export const NewsEdit = () => {
     }
   };
 
+  const validateImage = (url: string) => {
+    if (!url) {
+      setImageError(false);
+      setImageLoading(false);
+      return;
+    }
+
+    setImageLoading(true);
+    setImageError(false);
+
+    const img = new Image();
+    img.onload = () => {
+      setImageLoading(false);
+      setImageError(false);
+    };
+    img.onerror = () => {
+      setImageLoading(false);
+      setImageError(true);
+    };
+    img.src = url;
+  };
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -100,12 +130,26 @@ export const NewsEdit = () => {
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
+
+      // Validate image when media_url changes
+      if (name === 'media_url') {
+        validateImage(value);
+      }
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(false);
+
+    // Block submission if image is broken
+    if (imageError) {
+      setError('Невозможно сохранить: изображение не загружается');
+      return;
+    }
+
+    setSaving(true);
 
     try {
       const formDataToSend = new FormData();
@@ -124,7 +168,10 @@ export const NewsEdit = () => {
       });
 
       if (response.ok) {
-        setSubmitted(true);
+        setSuccess(true);
+        setTimeout(() => {
+          navigate('/news/list');
+        }, 1500);
       } else {
         const data = await response.json();
         setError(data.error || 'Ошибка при обновлении новости');
@@ -132,46 +179,24 @@ export const NewsEdit = () => {
     } catch (err) {
       setError('Ошибка сети');
       console.error(err);
+    } finally {
+      setSaving(false);
     }
-  };
-
-  const handleBackToList = () => {
-    navigate('/news/list');
   };
 
   if (!user || loading) {
     return <div>Загрузка...</div>;
   }
 
-  if (error && !formData.headline) {
-    return (
-      <div className="news-create-page">
-        <div className="error-message" style={{ padding: '40px', textAlign: 'center' }}>
-          <p>{error}</p>
-          <button onClick={handleBackToList} className="submit-btn">
-            Вернуться к списку
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="news-create-page">
       <div className="news-create-header">
-        <div className="news-create-header-left">
-          <button onClick={handleBackToList} className="btn-back">
-            ← К списку новостей
-          </button>
-        </div>
-        <div className="news-create-header-right">
-          <span className="user-info">
-            {user.username} ({user.role})
-          </span>
-          <button className="logout-btn" onClick={handleLogout}>
-            Выйти
-          </button>
-        </div>
+        <span className="user-info">
+          {user.username} ({user.role})
+        </span>
+        <button className="logout-btn" onClick={handleLogout}>
+          Выйти
+        </button>
       </div>
 
       <div className="news-create-content">
@@ -179,106 +204,122 @@ export const NewsEdit = () => {
         <div className="news-create-form-column">
           <h2>Редактировать новость</h2>
 
-          {!submitted ? (
-            <form onSubmit={handleSubmit} className="news-create-form">
-              <div className="form-field">
+          <form onSubmit={handleSubmit} className="news-create-form">
+            <div className="form-field">
+              <input
+                type="text"
+                name="headline"
+                placeholder="Заголовок"
+                value={formData.headline}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className="form-field">
+              <textarea
+                name="text"
+                placeholder="Текст новости"
+                rows={4}
+                value={formData.text}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="form-field">
+              <input
+                type="text"
+                name="media_url"
+                placeholder="Ссылка на изображение"
+                value={formData.media_url}
+                onChange={handleChange}
+              />
+              {imageLoading && (
+                <span className="image-status image-status-loading">
+                  ⏳ Проверка изображения...
+                </span>
+              )}
+              {imageError && (
+                <span className="image-status image-status-error">
+                  ⚠️ Ошибка: изображение не загружается!
+                </span>
+              )}
+            </div>
+
+            <div className="form-field">
+              <input
+                type="text"
+                name="source_name"
+                placeholder="Источник"
+                value={formData.source_name}
+                onChange={handleChange}
+                required
+              />
+            </div>
+
+            <div className="form-field">
+              <textarea
+                name="author_comment"
+                placeholder="Комментарий автора"
+                rows={3}
+                value={formData.author_comment}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div className="form-field">
+              <label>Формат:</label>
+              <select name="format" value={formData.format} onChange={handleChange}>
+                <option value="txt">Только текст</option>
+                <option value="img">Только изображение</option>
+                <option value="img_txt">Текст + изображение</option>
+              </select>
+            </div>
+
+            <div className="form-field">
+              <label>
                 <input
-                  type="text"
-                  name="headline"
-                  placeholder="Заголовок"
-                  value={formData.headline}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div className="form-field">
-                <textarea
-                  name="text"
-                  placeholder="Текст новости"
-                  rows={4}
-                  value={formData.text}
+                  type="checkbox"
+                  name="is_real"
+                  checked={formData.is_real}
                   onChange={handleChange}
                 />
-              </div>
+                Реальная новость
+              </label>
+            </div>
 
-              <div className="form-field">
-                <input
-                  type="text"
-                  name="media_url"
-                  placeholder="Ссылка на изображение"
-                  value={formData.media_url}
-                  onChange={handleChange}
-                />
-              </div>
+            <div className="form-field">
+              <label htmlFor="published_date">Дата публикации:</label>
+              <input
+                type="date"
+                name="published_date"
+                id="published_date"
+                value={formData.published_date}
+                onChange={handleChange}
+              />
+            </div>
 
-              <div className="form-field">
-                <input
-                  type="text"
-                  name="source_name"
-                  placeholder="Источник"
-                  value={formData.source_name}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
+            {error && <div className="error-message">{error}</div>}
+            {success && <div className="success-message">✅ Новость успешно обновлена!</div>}
 
-              <div className="form-field">
-                <textarea
-                  name="author_comment"
-                  placeholder="Комментарий автора (например: 'Эта новость была выдумана на основе...')"
-                  rows={3}
-                  value={formData.author_comment}
-                  onChange={handleChange}
-                />
-              </div>
-
-              <div className="form-field">
-                <label>Формат:</label>
-                <select name="format" value={formData.format} onChange={handleChange}>
-                  <option value="txt">Только текст</option>
-                  <option value="img">Только изображение</option>
-                  <option value="img_txt">Текст + изображение</option>
-                </select>
-              </div>
-
-              <div className="form-field">
-                <label>
-                  <input
-                    type="checkbox"
-                    name="is_real"
-                    checked={formData.is_real}
-                    onChange={handleChange}
-                  />
-                  Реальная новость
-                </label>
-              </div>
-
-              <div className="form-field">
-                <label htmlFor="published_date">Дата публикации:</label>
-                <input
-                  type="date"
-                  name="published_date"
-                  id="published_date"
-                  value={formData.published_date}
-                  onChange={handleChange}
-                />
-              </div>
-
-              {error && <div className="error-message">{error}</div>}
-
-              <button type="submit" className="submit-btn">
-                Сохранить изменения
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="submit"
+                className="submit-btn"
+                disabled={saving || imageError}
+              >
+                {saving ? 'Сохранение...' : 'Сохранить'}
               </button>
-            </form>
-          ) : (
-            <div className="success-message">
-              <p>✅ Новость успешно обновлена!</p>
-              <button onClick={handleBackToList} className="submit-btn">
-                Вернуться к списку
+              <button
+                type="button"
+                className="submit-btn"
+                onClick={() => navigate('/news/list')}
+                style={{ background: '#666' }}
+              >
+                Отмена
               </button>
             </div>
-          )}
+          </form>
         </div>
 
         {/* Right column: Preview */}
@@ -291,11 +332,12 @@ export const NewsEdit = () => {
               {formData.headline || 'Заголовок новости'}
             </h2>
 
-            {formData.media_url && (
+            {formData.media_url && !imageError && (
               <img
                 src={formData.media_url}
                 alt="Preview"
                 className="question-card__image"
+                onError={() => setImageError(true)}
               />
             )}
 
@@ -316,7 +358,6 @@ export const NewsEdit = () => {
               </div>
             )}
 
-            {/* Truth badge for preview */}
             <div className="question-card__truth-badge">
               {formData.is_real ? 'REAL' : 'FAKE'}
             </div>

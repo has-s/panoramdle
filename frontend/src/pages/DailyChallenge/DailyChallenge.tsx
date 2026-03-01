@@ -175,12 +175,6 @@ export const DailyChallenge = () => {
       setCurrentIndex(0);
     };
 
-  const copyNewsId = (newsId: string) => {
-    navigator.clipboard.writeText(newsId).catch(err => {
-      alert('Ошибка копирования: ' + err);
-    });
-  };
-
   if (hasCompletedToday() && showWelcome) {
     const score = savedResults ? savedResults.results.filter(Boolean).length : 0;
     const total = savedResults ? savedResults.results.length : 10;
@@ -438,8 +432,20 @@ export const DailyChallenge = () => {
       {isModerator && (
         <div style={{ marginBottom: '10px', fontSize: '12px', color: '#999' }}>
           <span>ID: {currentNews.id}</span>
-          <button onClick={() => copyNewsId(currentNews.id)} style={{ marginLeft: '10px', fontSize: '12px' }}>
-            📋 Копировать
+          <button
+            onClick={() => navigate(`/news/edit/${currentNews.id}`)}
+            style={{
+              marginLeft: '10px',
+              fontSize: '12px',
+              padding: '4px 8px',
+              background: '#333',
+              color: 'white',
+              border: 'none',
+              borderRadius: '3px',
+              cursor: 'pointer'
+            }}
+          >
+            ✏️ Редактировать
           </button>
         </div>
       )}

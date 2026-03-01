@@ -29,9 +29,14 @@ export const NewsCreate = () => {
   });
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
 
   useEffect(() => {
-    checkAuth();
+    const init = async () => {
+      await checkAuth();
+    };
+    init();
   }, []);
 
   const checkAuth = async () => {
@@ -56,6 +61,28 @@ export const NewsCreate = () => {
     }
   };
 
+  const validateImage = (url: string) => {
+    if (!url) {
+      setImageError(false);
+      setImageLoading(false);
+      return;
+    }
+
+    setImageLoading(true);
+    setImageError(false);
+
+    const img = new Image();
+    img.onload = () => {
+      setImageLoading(false);
+      setImageError(false);
+    };
+    img.onerror = () => {
+      setImageLoading(false);
+      setImageError(true);
+    };
+    img.src = url;
+  };
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -66,6 +93,11 @@ export const NewsCreate = () => {
       setFormData(prev => ({ ...prev, [name]: checked }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
+
+      // Validate image when media_url changes
+      if (name === 'media_url') {
+        validateImage(value);
+      }
     }
   };
 
@@ -73,8 +105,13 @@ export const NewsCreate = () => {
     e.preventDefault();
     setError(null);
 
+    // Block submission if image is broken
+    if (imageError) {
+      setError('Невозможно сохранить: изображение не загружается');
+      return;
+    }
+
     try {
-      // Backend expects FormData
       const formDataToSend = new FormData();
       formDataToSend.append('headline', formData.headline);
       formDataToSend.append('text', formData.text);
@@ -114,6 +151,8 @@ export const NewsCreate = () => {
       published_date: new Date().toISOString().split('T')[0],
       author_comment: '',
     });
+    setImageError(false);
+    setImageLoading(false);
   };
 
   if (!user) {
@@ -167,6 +206,16 @@ export const NewsCreate = () => {
                   value={formData.media_url}
                   onChange={handleChange}
                 />
+                {imageLoading && (
+                  <span className="image-status image-status-loading">
+                    ⏳ Проверка изображения...
+                  </span>
+                )}
+                {imageError && (
+                  <span className="image-status image-status-error">
+                    ⚠️ Ошибка: изображение не загружается!
+                  </span>
+                )}
               </div>
 
               <div className="form-field">
@@ -225,7 +274,11 @@ export const NewsCreate = () => {
 
               {error && <div className="error-message">{error}</div>}
 
-              <button type="submit" className="submit-btn">
+              <button
+                type="submit"
+                className="submit-btn"
+                disabled={imageError}
+              >
                 Добавить новость
               </button>
             </form>
@@ -249,11 +302,12 @@ export const NewsCreate = () => {
               {formData.headline || 'Заголовок новости'}
             </h2>
 
-            {formData.media_url && (
+            {formData.media_url && !imageError && (
               <img
                 src={formData.media_url}
                 alt="Preview"
                 className="question-card__image"
+                onError={() => setImageError(true)}
               />
             )}
 

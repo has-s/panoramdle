@@ -172,3 +172,26 @@
 .question-card__author-comment strong {
   color: #333;
 }
+
+/* image check */
+
+.image-status {
+  display: block;
+  margin-top: 5px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.image-status-loading {
+  color: #ff9800;
+}
+
+.image-status-error {
+  color: #f44336;
+  font-weight: bold;
+}
+
+.btn-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

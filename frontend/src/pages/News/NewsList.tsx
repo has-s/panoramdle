@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '@/services/api';
+import { searchWithLayout } from '@/utils/transliterate';
 import './NewsList.css';
 
 interface NewsItem {
@@ -26,13 +27,17 @@ export const NewsList = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    checkAuth();
+    checkAuth().catch(console.error);
   }, []);
 
   useEffect(() => {
     if (searchId.trim()) {
       setFilteredNews(
-        newsList.filter(item => item.id.toLowerCase().includes(searchId.toLowerCase()))
+        newsList.filter(item =>
+          searchWithLayout(searchId, item.id) ||
+          searchWithLayout(searchId, item.headline) ||
+          (item.text && searchWithLayout(searchId, item.text))
+        )
       );
     } else {
       setFilteredNews(newsList);
@@ -131,7 +136,7 @@ export const NewsList = () => {
         <div className="news-list-header-actions">
           <input
             type="text"
-            placeholder="Поиск по ID..."
+            placeholder="Поиск по ID, заголовку или тексту..."
             value={searchId}
             onChange={(e) => setSearchId(e.target.value)}
             className="search-input"
