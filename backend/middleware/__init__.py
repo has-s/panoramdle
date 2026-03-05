@@ -4,6 +4,7 @@ from .auth import (
     require_admin,
     get_client_ip,
     get_user_agent,
+    revoke_all_sessions,
     ForbiddenHTMLException
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "require_admin",
     "get_client_ip",
     "get_user_agent",
+    "revoke_all_sessions",
     "ForbiddenHTMLException"
 ]

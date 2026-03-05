@@ -264,3 +264,38 @@
   outline: none;
   border-color: #333;
 }
+
+.conflict-modal {
+  max-width: 500px;
+}
+
+.conflict-details {
+  background: #f9f9f9;
+  padding: 15px;
+  margin: 15px 0;
+  border-left: 4px solid #ff9800;
+}
+
+.conflict-question {
+  font-weight: 600;
+  margin: 20px 0 10px;
+}
+
+.conflict-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.conflict-warning {
+  padding: 10px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.badge-active { background: #4caf50; color: white; }
+.badge-inactive { background: #9e9e9e; color: white; }
+.badge-deleted { background: #f44336; color: white; }

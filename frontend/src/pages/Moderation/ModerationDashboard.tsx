@@ -8,7 +8,7 @@ interface User {
   username: string;
   email: string;
   role: string;
-  is_active: boolean;
+  status: string;  // Изменено с is_active
   last_login: string | null;
   created_at: string;
 }
@@ -32,8 +32,16 @@ export const ModerationDashboard = () => {
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showConflictModal, setShowConflictModal] = useState(false);
   const [resetUserId, setResetUserId] = useState<number | null>(null);
   const [resetUsername, setResetUsername] = useState('');
+  const [conflictData, setConflictData] = useState<any>(null);
+  const [createUserData, setCreateUserData] = useState({
+    username: '',
+    password: '',
+    email: '',
+    role: 'moderator',
+  });
 
   useEffect(() => {
     init();
@@ -135,12 +143,29 @@ export const ModerationDashboard = () => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
 
+    // Сохраняем данные для возможного conflict resolution
+    setCreateUserData({
+      username: formData.get('username') as string,
+      password: formData.get('password') as string,
+      email: formData.get('email') as string,
+      role: formData.get('role') as string,
+    });
+
+    formData.append('force_overwrite', 'false');
+
     try {
       const response = await fetch('/api/users/create', {
         method: 'POST',
         body: formData,
       });
       const data = await response.json();
+
+      // Проверяем конфликт с удалённым пользователем
+      if (data.conflict) {
+        setConflictData(data.deleted_user);
+        setShowConflictModal(true);
+        return;
+      }
 
       if (data.ok) {
         showMessage('Модератор создан');
@@ -151,6 +176,60 @@ export const ModerationDashboard = () => {
       }
     } catch (error) {
       showMessage('Ошибка сервера', 'error');
+    }
+  };
+
+  const handleResolveConflict = async (action: 'restore' | 'overwrite') => {
+    if (action === 'restore') {
+      // Восстанавливаем старого пользователя
+      const formData = new FormData();
+      formData.append('new_password', createUserData.password);
+
+      try {
+        const response = await fetch(`/api/users/${conflictData.id}/restore`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          showMessage('Пользователь восстановлен');
+          setConflictData(null);
+          setShowConflictModal(false);
+          setShowCreateUser(false);
+          await loadUsers();
+        } else {
+          showMessage('Ошибка восстановления', 'error');
+        }
+      } catch (error) {
+        showMessage('Ошибка сервера', 'error');
+      }
+    } else {
+      // Перезаписываем (создаём нового, старого переименовываем)
+      const formData = new FormData();
+      formData.append('username', createUserData.username);
+      formData.append('password', createUserData.password);
+      formData.append('email', createUserData.email);
+      formData.append('role', createUserData.role);
+      formData.append('force_overwrite', 'true');
+
+      try {
+        const response = await fetch('/api/users/create', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          showMessage('Новый пользователь создан');
+          setConflictData(null);
+          setShowConflictModal(false);
+          setShowCreateUser(false);
+          await loadUsers();
+        } else {
+          showMessage('Ошибка создания', 'error');
+        }
+      } catch (error) {
+        showMessage('Ошибка сервера', 'error');
+      }
     }
   };
 
@@ -181,31 +260,15 @@ export const ModerationDashboard = () => {
     }
   };
 
-  const handleDeactivate = async (userId: number) => {
-    if (!confirm('Деактивировать этого пользователя?')) return;
+  const handleToggleStatus = async (userId: number, currentStatus: string) => {
+    const endpoint = currentStatus === 'active' ? 'deactivate' : 'activate';
 
     try {
-      const response = await fetch(`/api/users/${userId}/deactivate`, { method: 'POST' });
+      const response = await fetch(`/api/users/${userId}/${endpoint}`, { method: 'POST' });
       const data = await response.json();
 
       if (data.ok) {
-        showMessage('Пользователь деактивирован');
-        await loadUsers();
-      } else {
-        showMessage(data.error || 'Ошибка', 'error');
-      }
-    } catch (error) {
-      showMessage('Ошибка сервера', 'error');
-    }
-  };
-
-  const handleActivate = async (userId: number) => {
-    try {
-      const response = await fetch(`/api/users/${userId}/activate`, { method: 'POST' });
-      const data = await response.json();
-
-      if (data.ok) {
-        showMessage('Пользователь активирован');
+        showMessage(`Пользователь ${currentStatus === 'active' ? 'деактивирован' : 'активирован'}`);
         await loadUsers();
       } else {
         showMessage(data.error || 'Ошибка', 'error');
@@ -216,7 +279,7 @@ export const ModerationDashboard = () => {
   };
 
   const handleDelete = async (userId: number, username: string) => {
-    if (!confirm(`Удалить пользователя ${username}? Это действие необратимо!`)) return;
+    if (!confirm(`Удалить пользователя ${username}?`)) return;
 
     try {
       const response = await fetch(`/api/users/${userId}`, { method: 'DELETE' });
@@ -311,8 +374,8 @@ export const ModerationDashboard = () => {
                     </span>
                   </td>
                   <td>
-                    <span className={`badge badge-${user.is_active ? 'active' : 'inactive'}`}>
-                      {user.is_active ? 'Активен' : 'Неактивен'}
+                    <span className={`badge badge-${user.status}`}>
+                      {user.status.toUpperCase()}
                     </span>
                   </td>
                   <td>
@@ -333,21 +396,13 @@ export const ModerationDashboard = () => {
                         >
                           Сбросить пароль
                         </button>
-                        {user.is_active ? (
-                          <button
-                            className="btn-secondary"
-                            onClick={() => handleDeactivate(user.id)}
-                          >
-                            Деактивировать
-                          </button>
-                        ) : (
-                          <button
-                            className="btn-success"
-                            onClick={() => handleActivate(user.id)}
-                          >
-                            Активировать
-                          </button>
-                        )}
+                        <button
+                          className="btn-secondary"
+                          onClick={() => handleToggleStatus(user.id, user.status)}
+                          disabled={user.status === 'deleted'}
+                        >
+                          {user.status === 'active' ? 'Деактивировать' : 'Активировать'}
+                        </button>
                         <button
                           className="btn-danger"
                           onClick={() => handleDelete(user.id, user.username)}
@@ -492,6 +547,53 @@ export const ModerationDashboard = () => {
                 Отмена
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Conflict Resolution Modal */}
+      {showConflictModal && conflictData && (
+        <div className="modal" onClick={() => setShowConflictModal(false)}>
+          <div className="modal-content conflict-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>⚠️ Обнаружен конфликт</h3>
+            <p>
+              Найден удалённый пользователь с именем <strong>{createUserData.username}</strong>
+            </p>
+            <div className="conflict-details">
+              <p><strong>Email:</strong> {conflictData.email || 'Не указан'}</p>
+              <p><strong>Роль:</strong> {conflictData.role}</p>
+              <p><strong>Создан:</strong> {new Date(conflictData.created_at).toLocaleDateString('ru-RU')}</p>
+            </div>
+
+            <p className="conflict-question">Выберите действие:</p>
+
+            <div className="conflict-actions">
+              <button
+                className="btn-primary"
+                onClick={() => handleResolveConflict('restore')}
+              >
+                Восстановить запись
+              </button>
+              <button
+                className="btn-danger"
+                onClick={() => handleResolveConflict('overwrite')}
+              >
+                Создать нового и перезаписать
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setShowConflictModal(false);
+                  setConflictData(null);
+                }}
+              >
+                Отмена
+              </button>
+            </div>
+
+            <div className="conflict-warning">
+              ⚠️ <strong>Перезапись</strong> переименует старого пользователя на "{createUserData.username}_[timestamp]"
+            </div>
           </div>
         </div>
       )}

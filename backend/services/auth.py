@@ -62,13 +62,18 @@ async def create_moderator(
 async def authenticate(username: str, password: str) -> Optional[Dict[str, Any]]:
     try:
         query = moderators.select().where(
-            (moderators.c.username == username) &
-            (moderators.c.is_active == True)
+            moderators.c.username == username
         )
         moderator = await database.fetch_one(query)
 
         if not moderator:
             logger.warning(f"Login attempt for non-existent user: {username}")
+            return None
+
+        # КРИТИЧНО: Проверяем статус аккаунта при логине
+        # Разрешаем вход только активным пользователям
+        if moderator.status != 'active':
+            logger.warning(f"Login attempt for {moderator.status} user: {username}")
             return None
 
         if not verify_password(password, moderator.password_hash):
@@ -121,12 +126,19 @@ async def get_session(session_id: str) -> Optional[Dict[str, Any]]:
             return None
 
         mod_query = moderators.select().where(
-            (moderators.c.id == session.moderator_id) &
-            (moderators.c.is_active == True)
+            moderators.c.id == session.moderator_id
         )
         moderator = await database.fetch_one(mod_query)
 
         if not moderator:
+            return None
+
+        # КРИТИЧНО: Дополнительная проверка статуса в get_session
+        # Если статус изменился после создания сессии, сессия становится невалидной
+        if moderator.status != 'active':
+            logger.warning(f"Session access attempt for {moderator.status} user: {moderator.username}")
+            # Удаляем невалидную сессию
+            await delete_session(session_id)
             return None
 
         update_query = sessions.update().where(

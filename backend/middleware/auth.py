@@ -4,6 +4,8 @@ from typing import Optional, Dict, Any
 import logging
 
 from backend.services.auth import get_session
+from backend.db import database
+from backend.models.auth import sessions
 
 logger = logging.getLogger(__name__)
 templates = Jinja2Templates(directory="backend/templates")
@@ -26,7 +28,18 @@ async def get_current_moderator(request: Request) -> Optional[Dict[str, Any]]:
     if not session_data:
         return None
 
-    return session_data["moderator"]
+    moderator = session_data["moderator"]
+
+    # ПРОВЕРКА СТАТУСА - критично для безопасности
+    if moderator.get("status") == "deleted":
+        logger.warning(f"Deleted user attempted access: {moderator.get('username')}")
+        return None
+
+    if moderator.get("status") == "inactive":
+        logger.warning(f"Inactive user attempted access: {moderator.get('username')}")
+        return None
+
+    return moderator
 
 
 async def require_auth(request: Request) -> Dict[str, Any]:
@@ -81,6 +94,21 @@ async def require_admin(request: Request) -> Dict[str, Any]:
         )
 
     return moderator
+
+
+async def revoke_all_sessions(user_id: int) -> int:
+    """
+    Удаляет все активные сессии пользователя
+    Возвращает количество удалённых сессий
+    """
+    try:
+        delete_query = sessions.delete().where(sessions.c.moderator_id == user_id)
+        result = await database.execute(delete_query)
+        logger.info(f"Revoked all sessions for user_id: {user_id}")
+        return result
+    except Exception as e:
+        logger.error(f"Failed to revoke sessions for user_id {user_id}: {e}")
+        raise
 
 
 def get_client_ip(request: Request) -> str:

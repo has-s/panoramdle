@@ -2,10 +2,11 @@ from fastapi import APIRouter, Request, Form, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import logging
+from datetime import datetime
 
 from backend.db import database
 from backend.models.auth import moderators
-from backend.middleware import require_auth, require_admin, get_client_ip
+from backend.middleware import require_auth, require_admin, get_client_ip, revoke_all_sessions
 from backend.services.auth import log_action, hash_password, verify_password
 
 router = APIRouter()
@@ -94,7 +95,10 @@ async def update_own_email(
 
 @router.get("/api/users/list")
 async def list_users(admin: dict = Depends(require_admin)):
-    query = moderators.select().order_by(moderators.c.created_at.desc())
+    query = moderators.select().where(
+        moderators.c.status != 'deleted'
+    ).order_by(moderators.c.created_at.desc())
+
     users = await database.fetch_all(query)
 
     return [
@@ -103,7 +107,7 @@ async def list_users(admin: dict = Depends(require_admin)):
             "username": user.username,
             "email": user.email,
             "role": user.role,
-            "is_active": user.is_active,
+            "status": user.status,
             "created_at": str(user.created_at),
             "last_login": str(user.last_login) if user.last_login else None
         }
@@ -119,15 +123,39 @@ async def create_user(
         password: str = Form(...),
         email: str = Form(""),
         role: str = Form("moderator"),
+        force_overwrite: str = Form("false"),
 ):
     check_query = moderators.select().where(moderators.c.username == username)
     existing = await database.fetch_one(check_query)
 
     if existing:
-        return JSONResponse(
-            {"ok": False, "error": "Пользователь с таким username уже существует"},
-            status_code=400
-        )
+        if existing.status == 'deleted':
+            if force_overwrite == "false":
+                return {
+                    "conflict": True,
+                    "deleted_user": {
+                        "id": existing.id,
+                        "username": existing.username,
+                        "email": existing.email,
+                        "created_at": str(existing.created_at),
+                        "role": existing.role
+                    },
+                    "message": "Найден удалённый пользователь с таким же именем"
+                }
+            else:
+                timestamp = int(datetime.utcnow().timestamp())
+                update_query = moderators.update().where(
+                    moderators.c.id == existing.id
+                ).values(
+                    username=f"{existing.username}_{timestamp}",
+                    email=f"{existing.email}_{timestamp}" if existing.email else None
+                )
+                await database.execute(update_query)
+        else:
+            return JSONResponse(
+                {"ok": False, "error": "Пользователь с таким username уже существует"},
+                status_code=400
+            )
 
     password_hash = hash_password(password)
 
@@ -136,7 +164,7 @@ async def create_user(
         password_hash=password_hash,
         email=email if email.strip() else None,
         role=role,
-        is_active=True,
+        status='active',
         created_by=admin["id"]
     )
 
@@ -154,6 +182,53 @@ async def create_user(
     logger.info(f"User created by {admin['username']}: {username}")
 
     return {"ok": True, "id": new_id}
+
+
+@router.post("/api/users/{user_id}/restore")
+async def restore_deleted_user(
+        user_id: int,
+        request: Request,
+        admin: dict = Depends(require_admin),
+        new_password: str = Form(None),
+):
+    check_query = moderators.select().where(moderators.c.id == user_id)
+    user = await database.fetch_one(check_query)
+
+    if not user:
+        return JSONResponse(
+            {"ok": False, "error": "Пользователь не найден"},
+            status_code=404
+        )
+
+    if user.status != 'deleted':
+        return JSONResponse(
+            {"ok": False, "error": "Пользователь не удалён"},
+            status_code=400
+        )
+
+    values = {"status": "active"}
+
+    if new_password:
+        values["password_hash"] = hash_password(new_password)
+
+    update_query = moderators.update().where(
+        moderators.c.id == user_id
+    ).values(**values)
+
+    await database.execute(update_query)
+
+    await log_action(
+        moderator_id=admin["id"],
+        action="restore_moderator",
+        target_type="moderator",
+        target_id=str(user_id),
+        details={"target_username": user.username},
+        ip_address=get_client_ip(request)
+    )
+
+    logger.info(f"User restored by {admin['username']}: {user.username}")
+
+    return {"ok": True, "message": f"User '{user.username}' restored"}
 
 
 @router.post("/api/users/{user_id}/reset-password")
@@ -176,6 +251,12 @@ async def reset_user_password(
         return JSONResponse(
             {"ok": False, "error": "Пользователь не найден"},
             status_code=404
+        )
+
+    if user.status == 'deleted':
+        return JSONResponse(
+            {"ok": False, "error": "Нельзя сбросить пароль удалённому пользователю"},
+            status_code=400
         )
 
     new_hash = hash_password(new_password)
@@ -220,11 +301,20 @@ async def deactivate_user(
             status_code=404
         )
 
+    if user.status == 'deleted':
+        return JSONResponse(
+            {"ok": False, "error": "Нельзя деактивировать удалённого пользователя"},
+            status_code=400
+        )
+
     update_query = moderators.update().where(
         moderators.c.id == user_id
-    ).values(is_active=False)
+    ).values(status='inactive')
 
     await database.execute(update_query)
+
+    # Удаляем все сессии пользователя
+    await revoke_all_sessions(user_id)
 
     await log_action(
         moderator_id=admin["id"],
@@ -246,9 +336,24 @@ async def activate_user(
         request: Request,
         admin: dict = Depends(require_admin),
 ):
+    check_query = moderators.select().where(moderators.c.id == user_id)
+    user = await database.fetch_one(check_query)
+
+    if not user:
+        return JSONResponse(
+            {"ok": False, "error": "Пользователь не найден"},
+            status_code=404
+        )
+
+    if user.status == 'deleted':
+        return JSONResponse(
+            {"ok": False, "error": "Нельзя активировать удалённого пользователя. Используйте 'Восстановить'."},
+            status_code=400
+        )
+
     update_query = moderators.update().where(
         moderators.c.id == user_id
-    ).values(is_active=True)
+    ).values(status='active')
 
     await database.execute(update_query)
 
@@ -284,8 +389,20 @@ async def delete_user(
             status_code=404
         )
 
-    delete_query = moderators.delete().where(moderators.c.id == user_id)
-    await database.execute(delete_query)
+    if user.status == 'deleted':
+        return JSONResponse(
+            {"ok": False, "error": "Пользователь уже удалён"},
+            status_code=400
+        )
+
+    update_query = moderators.update().where(
+        moderators.c.id == user_id
+    ).values(status='deleted')
+
+    await database.execute(update_query)
+
+    # Удаляем все сессии пользователя
+    await revoke_all_sessions(user_id)
 
     await log_action(
         moderator_id=admin["id"],
@@ -296,6 +413,6 @@ async def delete_user(
         ip_address=get_client_ip(request)
     )
 
-    logger.info(f"User deleted by {admin['username']}: {user.username}")
+    logger.info(f"User deleted (soft) by {admin['username']}: {user.username}")
 
     return {"ok": True}

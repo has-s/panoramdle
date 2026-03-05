@@ -12,6 +12,7 @@ moderators = sqlalchemy.Table(
     sqlalchemy.Column("email", sqlalchemy.String(100), nullable=True),
     sqlalchemy.Column("role", sqlalchemy.String(20), nullable=False, server_default="moderator"),
     sqlalchemy.Column("is_active", sqlalchemy.Boolean, nullable=False, server_default="true"),
+    sqlalchemy.Column("status", sqlalchemy.String(20), nullable=False, server_default="active"),
     sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=text("CURRENT_TIMESTAMP")),
     sqlalchemy.Column("last_login", sqlalchemy.DateTime, nullable=True),
     sqlalchemy.Column("created_by", sqlalchemy.Integer, nullable=True),
