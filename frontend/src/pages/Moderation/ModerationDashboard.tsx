@@ -8,7 +8,7 @@ interface User {
   username: string;
   email: string;
   role: string;
-  status: string;  // Изменено с is_active
+  status: string;
   last_login: string | null;
   created_at: string;
 }
@@ -27,7 +27,6 @@ export const ModerationDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  // Modals
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
@@ -67,7 +66,7 @@ export const ModerationDashboard = () => {
     try {
       const response = await fetch('/api/users/list');
       const data = await response.json();
-      setUsers(data);
+      setUsers(data.filter((user: User) => user.id !== 0));
     } catch (error) {
       showMessage('Ошибка загрузки пользователей', 'error');
     }
@@ -143,7 +142,6 @@ export const ModerationDashboard = () => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
 
-    // Сохраняем данные для возможного conflict resolution
     setCreateUserData({
       username: formData.get('username') as string,
       password: formData.get('password') as string,
@@ -160,7 +158,6 @@ export const ModerationDashboard = () => {
       });
       const data = await response.json();
 
-      // Проверяем конфликт с удалённым пользователем
       if (data.conflict) {
         setConflictData(data.deleted_user);
         setShowConflictModal(true);
@@ -181,7 +178,6 @@ export const ModerationDashboard = () => {
 
   const handleResolveConflict = async (action: 'restore' | 'overwrite') => {
     if (action === 'restore') {
-      // Восстанавливаем старого пользователя
       const formData = new FormData();
       formData.append('new_password', createUserData.password);
 
@@ -204,7 +200,6 @@ export const ModerationDashboard = () => {
         showMessage('Ошибка сервера', 'error');
       }
     } else {
-      // Перезаписываем (создаём нового, старого переименовываем)
       const formData = new FormData();
       formData.append('username', createUserData.username);
       formData.append('password', createUserData.password);

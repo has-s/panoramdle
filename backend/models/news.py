@@ -15,5 +15,7 @@ news = sqlalchemy.Table(
     sqlalchemy.Column("source_name", sqlalchemy.String, nullable=True),
     sqlalchemy.Column("published_date", sqlalchemy.Date, nullable=True),
     sqlalchemy.Column("author_comment", sqlalchemy.Text, nullable=True),
-    sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=text("CURRENT_TIMESTAMP"))
+    sqlalchemy.Column("created_at", sqlalchemy.DateTime, server_default=text("CURRENT_TIMESTAMP")),
+    sqlalchemy.Column("created_by", sqlalchemy.Integer, nullable=True),
+    sqlalchemy.Column("edit_history", sqlalchemy.JSON, server_default=text("'[]'::json")),
 )

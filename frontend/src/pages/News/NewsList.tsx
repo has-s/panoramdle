@@ -15,6 +15,8 @@ interface NewsItem {
   published_date: string;
   author_comment: string;
   created_at: string;
+  creator_username: string | null;
+  editors: string[];
 }
 
 export const NewsList = () => {
@@ -183,6 +185,7 @@ export const NewsList = () => {
                 <th>Тип</th>
                 <th>Дата публикации</th>
                 <th>Создано</th>
+                <th>Создатель / Редакторы</th>
                 <th>Действия</th>
               </tr>
             </thead>
@@ -217,6 +220,20 @@ export const NewsList = () => {
                   </td>
                   <td>
                     {new Date(item.created_at).toLocaleDateString('ru-RU')}
+                  </td>
+                  <td>
+                    <div style={{ fontSize: '13px', lineHeight: '1.4' }}>
+                      {item.creator_username && (
+                        <div>
+                          <strong>{item.creator_username}</strong>
+                        </div>
+                      )}
+                      {item.editors.length > 0 && (
+                        <div style={{ color: '#666', fontSize: '12px' }}>
+                          {item.editors.join(', ')}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="actions-cell">
                     <button

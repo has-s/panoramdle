@@ -1,12 +1,14 @@
-from fastapi import APIRouter, Request, HTTPException, Form, Depends
+from fastapi import APIRouter, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from datetime import date as date_type
 import logging
+from typing import List
 
 from backend.db import database
-from backend.middleware import require_admin
+from backend.middleware import require_auth, require_admin
 from backend.services.challenge import generate_daily_challenge, get_daily_challenge
+from backend.models.auth import moderators
 
 router = APIRouter()
 tests = Jinja2Templates(directory="backend/tests")
@@ -34,6 +36,33 @@ async def get_today_challenge():
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get daily challenge")
+
+
+@router.get("/api/daily/challenge")
+async def get_daily_challenge_with_details(moderator: dict = Depends(require_auth)):
+    """Get today's daily challenge with full news details including creator info"""
+    today = date_type.today()
+    try:
+        challenge = await get_today_challenge()
+
+        if not challenge or "news" not in challenge:
+            raise HTTPException(status_code=404, detail="No challenge found for today")
+
+        # Получаем информацию о создателях для каждой новости
+        news_with_creators = []
+        for news_item in challenge["news"]:
+            # Уже должны быть creator_username и editors в ответе от get_today_challenge
+            news_with_creators.append(news_item)
+
+        return {
+            "challenge_date": str(today),
+            "news": news_with_creators
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting challenge: {e}")
         raise HTTPException(status_code=500, detail="Failed to get daily challenge")
 
 
@@ -82,29 +111,70 @@ async def get_challenge_by_date(challenge_date: date_type):
 
 
 @router.post("/api/daily/submit")
-async def submit_challenge_result(challenge_date: str = Form(...), correct_count: int = Form(...)):
-    try:
-        challenge_date_obj = date_type.fromisoformat(challenge_date)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format")
+async def submit_challenge_result(
+        request: Request,
+        moderator: dict = Depends(require_auth),
+        answers: List[dict] = None
+):
+    """Submit daily challenge answers and calculate result
 
-    if not 0 <= correct_count <= 10:
-        raise HTTPException(status_code=400, detail="correct_count must be between 0 and 10")
-
+    Expected format:
+    {
+      "answers": [
+        {"news_id": "uuid", "answer": true},
+        {"news_id": "uuid", "answer": false},
+        ...
+      ]
+    }
+    """
     try:
+        # Парсим JSON из body
+        body = await request.json()
+        answers = body.get("answers", [])
+
+        if not answers or not isinstance(answers, list):
+            raise HTTPException(status_code=400, detail="Invalid answers format")
+
+        if len(answers) != 10:
+            raise HTTPException(status_code=400, detail="Must submit exactly 10 answers")
+
+        today = date_type.today()
+
+        # Получаем текущий Daily Challenge
+        challenge = await get_daily_challenge(today)
+        if not challenge or "news" not in challenge:
+            raise HTTPException(status_code=404, detail="No challenge found for today")
+
+        # Подсчитываем правильные ответы
+        correct_count = 0
+        for answer in answers:
+            news_id = answer.get("news_id")
+            user_answer = answer.get("answer")
+
+            # Находим новость в challenge
+            news_item = next((n for n in challenge["news"] if n["id"] == news_id), None)
+            if not news_item:
+                raise HTTPException(status_code=404, detail=f"News {news_id} not found in challenge")
+
+            # Проверяем правильность ответа
+            if user_answer == news_item["is_real"]:
+                correct_count += 1
+
+        # Обновляем статистику
         from backend.models.challenge import daily_challenge
 
         await database.execute(
             daily_challenge.update()
-            .where(daily_challenge.c.challenge_date == challenge_date_obj)
+            .where(daily_challenge.c.challenge_date == today)
             .values(
                 total_attempts=daily_challenge.c.total_attempts + 1,
                 total_correct=daily_challenge.c.total_correct + correct_count
             )
         )
 
+        # Получаем обновлённую статистику
         result = await database.fetch_one(
-            daily_challenge.select().where(daily_challenge.c.challenge_date == challenge_date_obj)
+            daily_challenge.select().where(daily_challenge.c.challenge_date == today)
         )
 
         if not result:
@@ -112,22 +182,25 @@ async def submit_challenge_result(challenge_date: str = Form(...), correct_count
 
         row = dict(result)
         total = row.get("total_attempts", 0)
-        correct = row.get("total_correct", 0)
-        avg = correct / total if total > 0 else 0
+        total_correct = row.get("total_correct", 0)
+        avg = total_correct / total if total > 0 else 0
+
+        logger.info(f"User {moderator['username']} submitted daily challenge: {correct_count}/10")
 
         return {
             "success": True,
             "your_result": correct_count,
             "total_attempts": total,
-            "total_correct": correct,
+            "total_correct": total_correct,
             "average_correct": round(avg, 1),
             "average_percentage": round((avg / 10) * 100, 1)
         }
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Submit error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to submit result")
+        raise HTTPException(status_code=422, detail=f"Failed to process submission: {str(e)}")
 
 
 @router.post("/api/daily/refresh")

@@ -14,6 +14,12 @@ interface NewsFormData {
   author_comment: string;
 }
 
+interface NewsMetadata {
+  creator_username: string | null;
+  editors: string[];
+  created_at: string;
+}
+
 export const NewsEdit = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -27,6 +33,11 @@ export const NewsEdit = () => {
     is_real: false,
     published_date: new Date().toISOString().split('T')[0],
     author_comment: '',
+  });
+  const [metadata, setMetadata] = useState<NewsMetadata>({
+    creator_username: null,
+    editors: [],
+    created_at: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -76,6 +87,13 @@ export const NewsEdit = () => {
         is_real: news.is_real,
         published_date: news.published_date || new Date().toISOString().split('T')[0],
         author_comment: news.author_comment || '',
+      });
+
+      // Сохраняем метаданные о создателе и редакторах
+      setMetadata({
+        creator_username: news.creator_username,
+        editors: news.editors || [],
+        created_at: news.created_at,
       });
 
       // Проверяем существующее фото
@@ -203,6 +221,28 @@ export const NewsEdit = () => {
         {/* Left column: Form */}
         <div className="news-create-form-column">
           <h2>Редактировать новость</h2>
+
+          {/* Metadata info */}
+          <div style={{
+            backgroundColor: '#f5f5f5',
+            padding: '12px',
+            borderRadius: '4px',
+            marginBottom: '20px',
+            fontSize: '14px',
+            color: '#666',
+          }}>
+            {metadata.creator_username && (
+              <div>Создатель: <strong>{metadata.creator_username}</strong></div>
+            )}
+            {metadata.editors.length > 0 && (
+              <div>Изменено: <strong>{metadata.editors.join(', ')}</strong></div>
+            )}
+            {metadata.created_at && (
+              <div style={{ marginTop: '8px', fontSize: '12px' }}>
+                {new Date(metadata.created_at).toLocaleString('ru-RU')}
+              </div>
+            )}
+          </div>
 
           <form onSubmit={handleSubmit} className="news-create-form">
             <div className="form-field">
