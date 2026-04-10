@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dailyApi, authApi } from '@/services/api';
+import { ResultModal } from '@/components/ResultModal.tsx';
 import './DailyChallenge.css';
 import {
   hasCompletedToday,
@@ -521,14 +522,7 @@ export const DailyChallenge = () => {
       )}
 
       {answered && (
-        <>
-          <div className="question-card__truth-badge">
-            {currentNews.is_real ? 'REAL' : 'FAKE'}
-          </div>
-          <div className={`question-card__result-badge ${isCorrect ? 'question-card__result-badge--correct' : 'question-card__result-badge--incorrect'}`}>
-            {isCorrect ? '✓' : '✗'}
-          </div>
-        </>
+        <ResultModal isCorrect={isCorrect as boolean} isReal={currentNews.is_real} />
       )}
     </div>
   );

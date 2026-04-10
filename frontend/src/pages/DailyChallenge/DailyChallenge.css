@@ -3,7 +3,7 @@
 :root {
   /* Main colors */
   --color-black: #000;
-  --color-white: #fff;
+  --color-white: #ffffff;
   --color-accent: rgb(234, 78, 50);
 
   /* Text colors */
@@ -662,59 +662,6 @@ body {
   transform: rotate(3deg) scale(1.05);
 }
 
-/* ─── ANSWER FEEDBACK BADGES ─────────────────────────────── */
-
-.question-card__result-badge {
-  position: absolute;
-  top: 35px;
-  right: -10px;
-  padding: 6px 12px;
-  transform: rotate(5deg);
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 36px;
-  line-height: 1;
-  border: 3px solid var(--color-black);
-  transition: transform 0.3s ease;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.question-card__result-badge--correct {
-  background: var(--color-btn-confirm);
-  color: var(--color-black);
-}
-
-.question-card__result-badge--incorrect {
-  background: var(--color-btn-danger);
-  color: var(--color-white);
-}
-
-.question-card:hover .question-card__result-badge {
-  transform: rotate(-3deg) scale(1.05);
-}
-
-.question-card__truth-badge {
-  position: absolute;
-  top: -10px;
-  right: -10px;
-  padding: 6px 12px;
-  transform: rotate(5deg);
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 20px;
-  line-height: 1;
-  letter-spacing: 1px;
-  border: 3px solid var(--color-black);
-  background: var(--color-accent);
-  color: var(--color-black);
-  transition: transform 0.3s ease;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.question-card:hover .question-card__truth-badge {
-  transform: rotate(3deg) scale(1.05);
-}
-
 /* ─── ADD IN GROUPS LATER ────────────────────────────────── */
 
 .question-card__source-link,
@@ -793,7 +740,7 @@ body {
   transition: opacity 0.2s;
 }
 
-.question-card{
+.question-card {
   width: 800px;
   min-width: 800px;
   max-width: 800px;
@@ -809,6 +756,7 @@ body {
   gap: 15px;
   margin-bottom: 20px;
 }
+
 .results-card__toggle, .results-card__retry {
   flex: 1;
   height: 50px;
