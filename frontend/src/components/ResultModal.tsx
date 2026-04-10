@@ -8,9 +8,9 @@ interface ResultModalProps {
 export const ResultModal = ({ isCorrect, isReal }: ResultModalProps) => {
   const getMessage = () => {
     if (isCorrect) {
-      return isReal ? 'Да, это новость правда!' : 'Да, это фейк!';
+      return isReal ? 'Да, эта новость правда!' : 'Да, эта новость фейк!';
     } else {
-      return isReal ? 'Нет, это новость правда!' : 'Нет, это фейк!';
+      return isReal ? 'Нет, эта новость правда!' : 'Нет, эта новость фейк!';
     }
   };
 
