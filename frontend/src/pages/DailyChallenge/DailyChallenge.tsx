@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dailyApi, authApi } from '@/services/api';
-import { ResultModal } from '@/components/ResultModal.tsx';
+import { ResultModal } from '@/components/ResultModal';
 import './DailyChallenge.css';
 import {
   hasCompletedToday,
