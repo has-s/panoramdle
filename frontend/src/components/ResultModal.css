@@ -34,36 +34,3 @@
     opacity: 1;
   }
 }
-
-/* ─── MOBILE STYLES ─────────────────────────────────────── */
-
-@media (max-width: 768px) {
-  .result-modal {
-    top: -12px;
-    right: -12px;
-  }
-
-  .result-modal__banner {
-    font-size: 16px;
-    padding: 10px 16px;
-    border: 3px solid var(--color-black);
-    max-width: calc(100vw - 50px);
-    white-space: normal;
-    word-wrap: break-word;
-  }
-}
-
-@media (max-width: 480px) {
-  .result-modal {
-    top: -8px;
-    right: -8px;
-  }
-
-  .result-modal__banner {
-    font-size: 13px;
-    padding: 8px 12px;
-    border: 2px solid var(--color-black);
-    max-width: calc(100vw - 40px);
-    letter-spacing: 0.5px;
-  }
-}
