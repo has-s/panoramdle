@@ -165,6 +165,7 @@ export const DailyChallenge = () => {
       try {
         const statsData = await dailyApi.submitResults(challengeDate, score);
         setFinalStats(statsData);
+        setStats(statsData);
       } catch (error) {
         console.error('Failed to submit results:', error);
       }
@@ -214,9 +215,13 @@ export const DailyChallenge = () => {
           )}
         </div>
 
-        {stats && stats.total_attempts > 0 && (
+        {stats && (
           <div className="results-card__stats">
-            Средний результат сегодня: {stats.average_percentage}%
+            {stats.total_attempts === 1 ? (
+              <>Поздравляем, вы первый человек за сегодня! 🎉</>
+            ) : (
+              <>Средний результат сегодня: {stats.average_percentage}%</>
+            )}
           </div>
         )}
 
@@ -437,7 +442,7 @@ export const DailyChallenge = () => {
   return (
     <div className="question-card">
       <div className="question-card__counter">
-        Вопрос {currentIndex + 1} из {dailyData.length}
+        Новость {currentIndex + 1} из {dailyData.length}
       </div>
 
       {isModerator && (

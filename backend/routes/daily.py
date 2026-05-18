@@ -1,14 +1,12 @@
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, Request, HTTPException, Depends, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from datetime import date as date_type
 import logging
-from typing import List
 
 from backend.db import database
 from backend.middleware import require_auth, require_admin
 from backend.services.challenge import generate_daily_challenge, get_daily_challenge
-from backend.models.auth import moderators
 
 router = APIRouter()
 tests = Jinja2Templates(directory="backend/tests")
@@ -112,55 +110,12 @@ async def get_challenge_by_date(challenge_date: date_type):
 
 @router.post("/api/daily/submit")
 async def submit_challenge_result(
-        request: Request,
-        moderator: dict = Depends(require_auth),
-        answers: List[dict] = None
+    challenge_date: str = Form(...),
+    correct_count: int = Form(...)
 ):
-    """Submit daily challenge answers and calculate result
-
-    Expected format:
-    {
-      "answers": [
-        {"news_id": "uuid", "answer": true},
-        {"news_id": "uuid", "answer": false},
-        ...
-      ]
-    }
-    """
     try:
-        # Парсим JSON из body
-        body = await request.json()
-        answers = body.get("answers", [])
+        today = date_type.fromisoformat(challenge_date)
 
-        if not answers or not isinstance(answers, list):
-            raise HTTPException(status_code=400, detail="Invalid answers format")
-
-        if len(answers) != 10:
-            raise HTTPException(status_code=400, detail="Must submit exactly 10 answers")
-
-        today = date_type.today()
-
-        # Получаем текущий Daily Challenge
-        challenge = await get_daily_challenge(today)
-        if not challenge or "news" not in challenge:
-            raise HTTPException(status_code=404, detail="No challenge found for today")
-
-        # Подсчитываем правильные ответы
-        correct_count = 0
-        for answer in answers:
-            news_id = answer.get("news_id")
-            user_answer = answer.get("answer")
-
-            # Находим новость в challenge
-            news_item = next((n for n in challenge["news"] if n["id"] == news_id), None)
-            if not news_item:
-                raise HTTPException(status_code=404, detail=f"News {news_id} not found in challenge")
-
-            # Проверяем правильность ответа
-            if user_answer == news_item["is_real"]:
-                correct_count += 1
-
-        # Обновляем статистику
         from backend.models.challenge import daily_challenge
 
         await database.execute(
@@ -172,20 +127,21 @@ async def submit_challenge_result(
             )
         )
 
-        # Получаем обновлённую статистику
         result = await database.fetch_one(
-            daily_challenge.select().where(daily_challenge.c.challenge_date == today)
+            daily_challenge.select().where(
+                daily_challenge.c.challenge_date == today
+            )
         )
 
         if not result:
             raise HTTPException(status_code=404, detail="Challenge not found")
 
         row = dict(result)
+
         total = row.get("total_attempts", 0)
         total_correct = row.get("total_correct", 0)
-        avg = total_correct / total if total > 0 else 0
 
-        logger.info(f"User {moderator['username']} submitted daily challenge: {correct_count}/10")
+        avg = total_correct / total if total > 0 else 0
 
         return {
             "success": True,
@@ -196,11 +152,9 @@ async def submit_challenge_result(
             "average_percentage": round((avg / 10) * 100, 1)
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Submit error: {e}", exc_info=True)
-        raise HTTPException(status_code=422, detail=f"Failed to process submission: {str(e)}")
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 @router.post("/api/daily/refresh")
