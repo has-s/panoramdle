@@ -14,6 +14,7 @@ export default defineConfig({
     port: 5173,
     allowedHosts: [
       'panoramdle.has-s.site',
+      'panoramdle.has-s.space',
       '.has-s.site'
     ],
     proxy: {

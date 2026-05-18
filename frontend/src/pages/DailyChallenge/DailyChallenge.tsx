@@ -102,9 +102,19 @@ export const DailyChallenge = () => {
 
       const savedProgress = loadProgress();
       if (savedProgress && savedProgress.date === response.challenge_date) {
-        setCurrentIndex(savedProgress.index);
-        setResults(savedProgress.results);
-        setCurrentNews(newsData[savedProgress.index]);
+        const savedIndex = savedProgress.index;
+        const savedResultsData = savedProgress.results;
+
+        setResults(savedResultsData);
+        setCurrentIndex(savedIndex);
+        setCurrentNews(newsData[savedIndex]);
+
+        // If this question was already answered, restore the answered state
+        // so the user sees "Continue" instead of REAL/FAKE buttons
+        if (savedResultsData[savedIndex] !== undefined) {
+          setIsCorrect(savedResultsData[savedIndex]);
+          setAnswered(true);
+        }
       } else {
         setCurrentIndex(0);
         setResults([]);
