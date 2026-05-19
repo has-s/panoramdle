@@ -6,21 +6,18 @@ services:
     container_name: panoramdle_frontend
     restart: unless-stopped
     ports:
-      - "0.0.0.0:5173:5173"  # ← Открыто наружу
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - "${FRONTEND_PORT:-5173}:80"
     environment:
-      - VITE_API_URL=http://localhost:8000
-    networks:
-      - panoramdle-network
+      - VITE_API_URL=http://localhost:${BACKEND_PORT:-8000}
+    depends_on:
+      - backend
 
   backend:
     build: .
     container_name: panoramdle_backend
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8000:8000"  # ← Только локально
+      - "${BACKEND_PORT:-8000}:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -32,11 +29,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    networks:
-      - panoramdle-network
 
   db:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: panoramdle_db
     restart: unless-stopped
     env_file:
@@ -45,20 +40,13 @@ services:
       - panoramdle_db_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
-      - "127.0.0.1:5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - panoramdle-network
 
 volumes:
   panoramdle_db_data:
     name: panoramdle_db_data
-
-networks:
-  panoramdle-network:
-    name: panoramdle-network
-    driver: bridge
