@@ -7,8 +7,6 @@ services:
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-5173}:80"
-    environment:
-      - VITE_API_URL=http://localhost:${BACKEND_PORT:-8000}
     depends_on:
       - backend
 

@@ -1,3 +1,5 @@
+include .env.docker
+
 # Makefile for Panoramdle
 .PHONY: help build up down restart logs status clean migrate db-init db-backup db-restore db-shell create-admin bootstrap-admin deploy rollback health first-run
 
@@ -14,18 +16,18 @@ help: ## Show available commands
 
 build: ## Build Docker images
 	@echo "$(GREEN)Building Docker images...$(NC)"
-	docker-compose build
+	docker compose build --build-arg VITE_API_URL=${VITE_API_URL}
 
 up: ## Start all services
 	@echo "$(GREEN)Starting services...$(NC)"
-	docker-compose up -d
+	docker compose up -d
 	@echo "$(GREEN)Services started!$(NC)"
 	@sleep 3
 	@make status
 
 down: ## Stop all services
 	@echo "$(YELLOW)Stopping services...$(NC)"
-	docker-compose down
+	docker compose down
 
 restart: ## Restart all services
 	@make down
@@ -33,14 +35,14 @@ restart: ## Restart all services
 
 logs: ## Show logs (usage: make logs SERVICE=backend)
 	@if [ -z "$(SERVICE)" ]; then \
-		docker-compose logs -f; \
+		docker compose logs -f; \
 	else \
-		docker-compose logs -f $(SERVICE); \
+		docker compose logs -f $(SERVICE); \
 	fi
 
 status: ## Show services status
 	@echo "$(GREEN)=== Docker Services Status ===$(NC)"
-	@docker-compose ps
+	@docker compose ps
 	@echo ""
 	@echo "$(GREEN)=== Container Health ===$(NC)"
 	@docker ps --format "table {{.Names}}\t{{.Status}}" | grep panoramdle || echo "No panoramdle containers running"
@@ -103,19 +105,19 @@ health: ## Check services health
 	fi
 	@echo ""
 	@echo "$(GREEN)=== Database Health ===$(NC)"
-	@docker-compose exec panoramdle_db pg_isready 2>/dev/null && echo "$(GREEN)✓ Database OK$(NC)" || echo "$(RED)✗ Database DOWN$(NC)"
+	@docker compose exec panoramdle_db pg_isready 2>/dev/null && echo "$(GREEN)✓ Database OK$(NC)" || echo "$(RED)✗ Database DOWN$(NC)"
 
 ##@ Development
 
 dev: ## Start development environment (with logs)
 	@echo "$(GREEN)Starting development environment...$(NC)"
-	docker-compose up
+	docker compose up
 
 shell-backend: ## Open shell in backend container
-	@docker-compose exec panoramdle_backend sh
+	@docker compose exec panoramdle_backend sh
 
 shell-db: ## Open psql in database
-	@docker-compose exec panoramdle_db sh -c 'psql -U $$POSTGRES_USER $$POSTGRES_DB'
+	@docker compose exec panoramdle_db sh -c 'psql -U $$POSTGRES_USER $$POSTGRES_DB'
 
 ##@ Monitoring
 
