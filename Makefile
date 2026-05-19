@@ -129,7 +129,7 @@ disk: ## Show disk usage
 	@docker system df
 	@echo ""
 	@echo "$(GREEN)=== Database Size ===$(NC)"
-	@docker-compose exec panoramdle_db sh -c 'psql -U $$POSTGRES_USER $$POSTGRES_DB -c "SELECT pg_size_pretty(pg_database_size('"'"'$$POSTGRES_DB'"'"'));"' 2>/dev/null || echo "Database not available"
+	@docker compose exec panoramdle_db sh -c 'psql -U $$POSTGRES_USER $$POSTGRES_DB -c "SELECT pg_size_pretty(pg_database_size('"'"'$$POSTGRES_DB'"'"'));"' 2>/dev/null || echo "Database not available"
 
 ##@ Quick Start
 
