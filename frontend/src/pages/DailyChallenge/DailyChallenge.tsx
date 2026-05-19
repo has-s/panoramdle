@@ -218,7 +218,7 @@ export const DailyChallenge = () => {
             {stats.total_attempts === 1 ? (
               <>Поздравляем, вы первый человек за сегодня! 🎉</>
             ) : (
-              <>Средний результат сегодня: {stats.average_percentage}%</>
+              <>Средний результат сегодня – {stats.average_correct}</>
             )}
           </div>
         )}
@@ -368,7 +368,7 @@ export const DailyChallenge = () => {
             {finalStats.total_attempts === 1 ? (
               <>Поздравляем, вы первый человек за сегодня! 🎉</>
             ) : (
-              <>Средний результат сегодня: {finalStats.average_percentage}%</>
+              <>Средний результат сегодня – {finalStats.average_correct}</>
             )}
           </div>
         )}

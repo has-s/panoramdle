@@ -1,0 +1,218 @@
+.about-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+  animation: overlay-in 0.2s ease;
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.about-modal {
+  width: 100%;
+  max-width: 480px;
+  background: var(--color-bg-card);
+  border: 6px solid var(--color-black);
+  box-shadow: 12px 12px 0 var(--color-black);
+  padding: 36px;
+  position: relative;
+  animation: modal-in 0.2s ease;
+}
+
+@keyframes modal-in {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* Close button */
+
+.about-modal__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: none;
+  border: 2px solid var(--color-black);
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+
+.about-modal__close:hover {
+  background: var(--color-black);
+  color: var(--color-white);
+}
+
+/* Title */
+
+.about-modal__title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 42px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  line-height: 1;
+  margin-bottom: 20px;
+  color: var(--color-text-primary);
+}
+
+/* Section */
+
+.about-modal__section {
+  margin-bottom: 20px;
+}
+
+.about-modal__section-title {
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--color-text-light);
+  margin-bottom: 14px;
+}
+
+.about-modal__text {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+  margin-bottom: 10px;
+}
+
+.about-modal__text:last-child {
+  margin-bottom: 0;
+}
+
+.about-modal__text em {
+  font-style: italic;
+  color: var(--color-text-primary);
+}
+
+/* Team */
+
+.about-modal__team {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.about-modal__team-role {
+  font-family: 'Oswald', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-text-light);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--color-black);
+}
+
+.about-modal__team-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.about-modal__team-list li {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  padding-left: 12px;
+  position: relative;
+}
+
+.about-modal__team-list li::before {
+  content: "—";
+  position: absolute;
+  left: 0;
+  color: var(--color-black);
+  font-weight: 900;
+}
+
+/* Divider */
+
+.about-modal__divider {
+  height: 3px;
+  background: var(--color-black);
+  margin: 20px 0;
+}
+
+/* Links */
+
+.about-modal__link {
+  color: var(--color-accent);
+  text-decoration: underline;
+  transition: opacity 0.2s;
+}
+
+.about-modal__link:hover {
+  opacity: 0.7;
+}
+
+.about-modal__links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.about-modal__link-btn {
+  display: block;
+  padding: 10px 16px;
+  border: 2px solid var(--color-black);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: 'Oswald', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s;
+}
+
+.about-modal__link-btn:hover {
+  background: var(--color-accent);
+  color: var(--color-white);
+  border-color: var(--color-accent);
+}
+
+/* Footer */
+
+.about-modal__footer {
+  text-align: center;
+  font-size: 14px;
+  color: var(--color-text-muted);
+  padding-top: 16px;
+  border-top: 3px solid var(--color-black);
+}
+
+/* Mobile */
+
+@media (max-width: 480px) {
+  .about-modal {
+    padding: 24px 18px;
+  }
+
+  .about-modal__title {
+    font-size: 32px;
+  }
+
+  .about-modal__team {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
