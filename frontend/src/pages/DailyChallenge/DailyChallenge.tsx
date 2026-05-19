@@ -109,8 +109,6 @@ export const DailyChallenge = () => {
         setCurrentIndex(savedIndex);
         setCurrentNews(newsData[savedIndex]);
 
-        // If this question was already answered, restore the answered state
-        // so the user sees "Continue" instead of REAL/FAKE buttons
         if (savedResultsData[savedIndex] !== undefined) {
           setIsCorrect(savedResultsData[savedIndex]);
           setAnswered(true);
@@ -174,18 +172,18 @@ export const DailyChallenge = () => {
     setShowResults(true);
   };
 
-    const handleRetry = () => {
-      const today = getTodayDate();
-      localStorage.removeItem(`challenge_results_${today}`);
-      document.cookie = `challenge_${today}=; path=/; max-age=0`;
-      setShowWelcome(true);
-      setSavedResults(null);
-      setShowDetailedResults(false);
-      setShowResults(false);
-      setDailyData([]);
-      setResults([]);
-      setCurrentIndex(0);
-    };
+  const handleRetry = () => {
+    const today = getTodayDate();
+    localStorage.removeItem(`challenge_results_${today}`);
+    document.cookie = `challenge_${today}=; path=/; max-age=0`;
+    setShowWelcome(true);
+    setSavedResults(null);
+    setShowDetailedResults(false);
+    setShowResults(false);
+    setDailyData([]);
+    setResults([]);
+    setCurrentIndex(0);
+  };
 
   if (hasCompletedToday() && showWelcome) {
     const score = savedResults ? savedResults.results.filter(Boolean).length : 0;
@@ -365,9 +363,13 @@ export const DailyChallenge = () => {
           </div>
         )}
 
-        {!isModerator && finalStats && finalStats.total_attempts > 1 && (
+        {!isModerator && finalStats && (
           <div className="results-card__stats">
-            Средний результат сегодня: {finalStats.average_percentage}%
+            {finalStats.total_attempts === 1 ? (
+              <>Поздравляем, вы первый человек за сегодня! 🎉</>
+            ) : (
+              <>Средний результат сегодня: {finalStats.average_percentage}%</>
+            )}
           </div>
         )}
 

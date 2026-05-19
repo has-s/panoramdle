@@ -5,7 +5,7 @@ from datetime import date as date_type
 import logging
 
 from backend.db import database
-from backend.middleware import require_auth, require_admin
+from backend.middleware import require_auth, require_admin, get_client_ip
 from backend.services.challenge import generate_daily_challenge, get_daily_challenge
 
 router = APIRouter()
@@ -47,10 +47,8 @@ async def get_daily_challenge_with_details(moderator: dict = Depends(require_aut
         if not challenge or "news" not in challenge:
             raise HTTPException(status_code=404, detail="No challenge found for today")
 
-        # Получаем информацию о создателях для каждой новости
         news_with_creators = []
         for news_item in challenge["news"]:
-            # Уже должны быть creator_username и editors в ответе от get_today_challenge
             news_with_creators.append(news_item)
 
         return {
@@ -78,7 +76,6 @@ async def get_daily_stats(date: str = None):
         if not result:
             return {"total_attempts": 0, "average_correct": 0, "average_percentage": 0}
 
-        # Преобразуем в dict
         row = dict(result)
         total = row.get("total_attempts", 0)
         correct = row.get("total_correct", 0)
@@ -110,14 +107,71 @@ async def get_challenge_by_date(challenge_date: date_type):
 
 @router.post("/api/daily/submit")
 async def submit_challenge_result(
+    request: Request,
     challenge_date: str = Form(...),
     correct_count: int = Form(...)
 ):
+    # Validate correct_count range
+    if not (0 <= correct_count <= 10):
+        raise HTTPException(status_code=400, detail="correct_count must be between 0 and 10")
+
+    # Only accept submissions for today
+    today = date_type.today()
     try:
-        today = date_type.fromisoformat(challenge_date)
+        submitted_date = date_type.fromisoformat(challenge_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format")
 
-        from backend.models.challenge import daily_challenge
+    if submitted_date != today:
+        raise HTTPException(status_code=400, detail="Submissions only accepted for today's challenge")
 
+    # Check IP rate limit — one submission per IP per day
+    ip = get_client_ip(request)
+
+    from backend.models.challenge import daily_challenge
+    from backend.models.submissions import daily_submissions
+
+    existing_submission = await database.fetch_one(
+        daily_submissions.select().where(
+            (daily_submissions.c.challenge_date == today) &
+            (daily_submissions.c.ip_address == ip)
+        )
+    )
+
+    if existing_submission:
+        # Already submitted — return current stats without updating
+        result = await database.fetch_one(
+            daily_challenge.select().where(daily_challenge.c.challenge_date == today)
+        )
+        if not result:
+            raise HTTPException(status_code=404, detail="Challenge not found")
+
+        row = dict(result)
+        total = row.get("total_attempts", 0)
+        total_correct = row.get("total_correct", 0)
+        avg = total_correct / total if total > 0 else 0
+
+        return {
+            "success": True,
+            "already_submitted": True,
+            "your_result": dict(existing_submission)["correct_count"],
+            "total_attempts": total,
+            "total_correct": total_correct,
+            "average_correct": round(avg, 1),
+            "average_percentage": round((avg / 10) * 100, 1)
+        }
+
+    try:
+        # Record submission for this IP
+        await database.execute(
+            daily_submissions.insert().values(
+                challenge_date=today,
+                ip_address=ip,
+                correct_count=correct_count
+            )
+        )
+
+        # Update aggregate stats
         await database.execute(
             daily_challenge.update()
             .where(daily_challenge.c.challenge_date == today)
@@ -128,23 +182,22 @@ async def submit_challenge_result(
         )
 
         result = await database.fetch_one(
-            daily_challenge.select().where(
-                daily_challenge.c.challenge_date == today
-            )
+            daily_challenge.select().where(daily_challenge.c.challenge_date == today)
         )
 
         if not result:
             raise HTTPException(status_code=404, detail="Challenge not found")
 
         row = dict(result)
-
         total = row.get("total_attempts", 0)
         total_correct = row.get("total_correct", 0)
-
         avg = total_correct / total if total > 0 else 0
+
+        logger.info(f"IP {ip} submitted daily challenge: {correct_count}/10")
 
         return {
             "success": True,
+            "already_submitted": False,
             "your_result": correct_count,
             "total_attempts": total,
             "total_correct": total_correct,
@@ -168,19 +221,15 @@ async def refresh_daily_challenge(
     try:
         from backend.models.challenge import daily_challenge
 
-        # Delete existing challenge for today
         await database.execute(
             daily_challenge.delete().where(daily_challenge.c.challenge_date == today)
         )
 
         logger.info(f"Admin {admin['username']} refreshed daily challenge for {today}")
 
-        # Generate new challenge
         new_challenge = await generate_daily_challenge(today)
 
-        # Log the action
         from backend.services.auth import log_action
-        from backend.middleware import get_client_ip
 
         await log_action(
             moderator_id=admin["id"],
